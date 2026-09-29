@@ -1,7 +1,8 @@
 """
 test_go_explore.py — Unit Tests for Go-Explore State Archive & DFD
 =================================================================
-Verifies delta compression, deterministic restoration, and Directed Frontier Distance sampling.
+Verifies delta compression, deterministic restoration, Directed Frontier Distance sampling,
+hierarchical cell representations, and stale frontier culling.
 """
 
 import pytest
@@ -41,9 +42,39 @@ def test_archive_registration_and_restoration():
     )
     assert registered is True
     assert len(archive.archive) == 1
+    assert cell in archive.active_frontier
 
     restored = archive.restore_cell(cell)
     assert bytes(restored) == state_bytes
+
+
+def test_hierarchical_cell_properties():
+    """Verify macro-cell and micro-cell projections."""
+    cell = CellRepresentation(map_id=4, x_coarse=14, y_coarse=22, safari_bucket=30)
+    assert cell.macro_cell == (4, 30)
+    assert cell.micro_cell == (7, 11)
+
+
+def test_stale_frontier_culling():
+    """Verify stagnant cells are removed from active sampling frontier."""
+    archive = GoExploreStateArchive(max_cells=1000)
+    c1 = CellRepresentation(map_id=0, x_coarse=1, y_coarse=1, safari_bucket=50)
+    c2 = CellRepresentation(map_id=0, x_coarse=2, y_coarse=2, safari_bucket=50)
+
+    archive.register_state(c1, bytes(8192), badge_count=0)
+    archive.register_state(c2, bytes(8192), badge_count=0)
+
+    assert len(archive.active_frontier) == 2
+
+    # Simulate c1 being sampled 20 times without new discovery
+    archive.archive[c1].stagnant_samples = 20
+
+    culled = archive.cull_stale_frontier(max_stagnant_samples=15)
+    assert culled == 1
+    assert c1 not in archive.active_frontier
+    assert c2 in archive.active_frontier
+    # Preserved in full archive for evaluation/replay
+    assert c1 in archive.archive
 
 
 def test_dfd_frontier_sampling():

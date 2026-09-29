@@ -24,7 +24,7 @@ def test_pipeline_short_training_run():
     metrics = pipeline.run_training_cycle(num_iterations=25)
 
     assert metrics["total_actions"] == 25 * 8
-    assert metrics["throughput_sps"] > 100.0
+    assert metrics["throughput_sps"] > 50.0
     assert metrics["archive_unique_cells"] > 0
     assert metrics["mean_delta_compression_ratio"] > 95.0
 

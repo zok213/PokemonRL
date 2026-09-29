@@ -1,0 +1,25 @@
+[package]
+name = "pokered_rust_core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Autonomous RPG AI Research Team"]
+description = "High-Performance Rust LR35902 Headless Vectorized Simulation Engine for Pokemon Red DRL"
+
+[lib]
+name = "pokered_rust_core"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+rayon = "1.10"
+ndarray = "0.15"
+pyo3 = { version = "0.20", features = ["extension-module"], optional = true }
+
+[features]
+default = []
+python = ["pyo3"]
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"

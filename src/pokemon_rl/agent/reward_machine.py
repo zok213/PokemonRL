@@ -198,6 +198,12 @@ class RewardMachine:
         self.total_rm_reward: float = 0.0
         self._validate_machine()
 
+    def reset(self) -> None:
+        """Reset Reward Machine to initial state upon episode reset."""
+        self.current_state = RM_START_STATE
+        self.state_history = [RM_START_STATE]
+        self.total_rm_reward = 0.0
+
     def _validate_machine(self):
         """Verify machine structure invariants at construction time."""
         # All transition endpoints must be valid states
