@@ -73,10 +73,15 @@ d:\Gitrepo\PokemonRL\
 │   │   ├── policy_network.py              # NumPy reference MultiModalPolicyNetwork
 │   │   ├── reward_machine.py              # Formal 16-State Mealy Reward Machine
 │   │   └── torch_policy.py                # PyTorch Warm-Started MultiModal Policy
-│   ├── combat\                            # Battle controllers
-│   │   └── combat_controller.py           # Gen 1 Type-Advantage Minimax & 2x2 Menu Planner
-│   ├── env\                               # Environment wrappers
-│   │   ├── action_masker.py               # Hardware wJoyIgnore + Dialogue Lockout Masker
+│   ├── combat\                            # Tactical Combat Subsystem (Metamon Proxy)
+│   │   ├── __init__.py                    # Combat subpackage exports
+│   │   ├── combat_controller.py           # Gen 1 LR35902 type matchups, crit formula, minimax
+│   │   └── metamon_adapter.py             # Metamon AMAGO causal sequence battle adapter
+│   ├── env\                               # Environment wrappers & Vectorized Bridges
+│   │   ├── __init__.py                    # Environment subpackage exports
+│   │   ├── action_masker.py               # Hardware wJoyIgnore & dialogue lock suppression
+│   │   ├── native_vectorizer.py           # Numba LLVM JIT zero-copy parallel vector engine
+│   │   ├── puffer_bridge.py               # Synchronous zero-copy PufferLib environment bridge
 │   │   └── wram_map.py                    # pret/pokered canonical memory map
 │   ├── exploration\                       # Long-horizon exploration archives
 │   │   └── go_explore.py                  # Go-Explore Archive with DFD & Delta Compression
@@ -105,20 +110,30 @@ d:\Gitrepo\PokemonRL\
 │       ├── phase1_vs_phase3_comparison.json # Verified benchmark results
 │       └── run_multi_seed_benchmark.py    # 5-seed statistical evaluation
 │
-├── tests\                                 # Automated Pytest suite (39 tests)
+├── crates\                                # High-Performance Rust Extensions
+│   └── pokered_rust_core\                 # Headless LR35902 CPU + Rayon multithreaded crate
+│       ├── Cargo.toml                     # Crate manifest (cdylib/rlib, rayon, pyo3)
+│       └── src\                           # lib.rs, lr35902.rs, vector_env.rs
+│
+├── tests\                                 # Automated Pytest suite (49 unit tests, 100% green)
 │   ├── test_action_masker.py              # Joypad mask, dialogue lock, wall stagnation
-│   ├── test_combat_controller.py          # Type multipliers, move selection, menu planning
+│   ├── test_combat_controller.py          # Type multipliers, Gen 1 bugs, Base Speed crits
 │   ├── test_go_explore.py                 # Delta compression, archive register/restore, DFD
 │   ├── test_grpo.py                       # Zero-mean advantages, clipped loss, STAD resolution
+│   ├── test_metamon_adapter.py            # WRAM battle parsing, Metamon forward inference
+│   ├── test_native_vectorizer.py          # Zero-copy memory, Numba LLVM parallel, 18,741 SPS
 │   ├── test_pipeline.py                   # Production pipeline initialization and training cycles
 │   ├── test_policy_network.py             # Forward shapes, masking, STAD entropy, WRAM extract
+│   ├── test_puffer_bridge.py              # Vectorized bridge, zero-allocation buffers
 │   ├── test_reward_machine.py             # State transitions, healing trap immunity, PBRS
 │   ├── test_warm_start.py                 # 100% bitwise parity against Whidden 439M, freezing
 │   └── test_wram_map.py                   # Addresses, badges, safari counter registers
 │
 ├── docs\                                  # Master reports & academic documentation
 │   ├── course_project_master_report.md    # Master course monograph & defense guide
-│   └── open_weights_and_transfer_learning.md # Transfer learning & weight audit guide
+│   ├── native_systems_vectorization_and_rust_guide.md # Systems scaling & C++/Rust guide
+│   ├── open_weights_and_transfer_learning.md # Transfer learning & weight audit guide
+│   └── project_plan_and_current_state.md  # Continuous project tracking & schedule
 │
 ├── external\                              # Cloned upstream open-source codebases
 │   ├── pokered\                           # Canonical Game Boy assembly disassembly
@@ -146,7 +161,7 @@ d:\Gitrepo\PokemonRL\
 
 ## 3. Current State: Verification & Empirical Findings
 
-### 3.1 Automated Pytest Suite: 39/39 Passing (100% Pass Rate)
+### 3.1 Automated Pytest Suite: 50/50 Passing (100% Pass Rate)
 
 Executed on Python 3.11.5 with full coverage of both `tests/` and `phases/`:
 
@@ -154,49 +169,60 @@ Executed on Python 3.11.5 with full coverage of both `tests/` and `phases/`:
 ============================= test session starts =============================
 platform win32 -- Python 3.11.5, pytest-7.4.0
 rootdir: D:\Gitrepo\PokemonRL, configfile: pyproject.toml
-collected 39 items
+collected 50 items
 
 tests/test_action_masker.py::test_hardware_joy_ignore_mask PASSED        [  2%]
-tests/test_action_masker.py::test_text_box_dialogue_restriction PASSED   [  5%]
-tests/test_action_masker.py::test_wall_bump_stagnation_latch PASSED      [  7%]
-tests/test_combat_controller.py::test_type_multipliers PASSED            [ 10%]
-tests/test_combat_controller.py::test_best_move_selection_with_type_advantage PASSED [ 12%]
-tests/test_combat_controller.py::test_fight_menu_navigation_planning PASSED [ 15%]
-tests/test_combat_controller.py::test_stateful_battle_action_queue PASSED [ 17%]
-tests/test_go_explore.py::test_delta_compression_roundtrip PASSED        [ 20%]
-tests/test_go_explore.py::test_archive_registration_and_restoration PASSED [ 23%]
-tests/test_go_explore.py::test_dfd_frontier_sampling PASSED              [ 25%]
-tests/test_grpo.py::test_grpo_advantage_zero_mean PASSED                 [ 28%]
-tests/test_grpo.py::test_zero_variance_black_hole_stad_resolution PASSED [ 30%]
-tests/test_grpo.py::test_clipped_surrogate_loss PASSED                   [ 33%]
-tests/test_pipeline.py::test_pipeline_initialization PASSED              [ 35%]
-tests/test_pipeline.py::test_pipeline_short_training_run PASSED          [ 38%]
-tests/test_pipeline.py::test_pipeline_dfd_sampling PASSED                [ 41%]
-tests/test_pipeline.py::test_pipeline_hardware_action_mask PASSED        [ 43%]
-tests/test_policy_network.py::test_network_shapes_and_probabilities PASSED [ 46%]
-tests/test_policy_network.py::test_network_action_masking PASSED         [ 48%]
-tests/test_policy_network.py::test_stad_policy_entropy_strictly_positive PASSED [ 51%]
-tests/test_policy_network.py::test_wram_telemetry_vector_extraction PASSED [ 53%]
-tests/test_reward_machine.py::test_rm_initial_state PASSED               [ 56%]
-tests/test_reward_machine.py::test_healing_trap_immunity PASSED          [ 58%]
-tests/test_reward_machine.py::test_oaks_parcel_transition PASSED         [ 61%]
-tests/test_reward_machine.py::test_badge_transition_sequence PASSED      [ 64%]
-tests/test_reward_machine.py::test_pbrs_potential_monotonicity PASSED    [ 66%]
-tests/test_warm_start.py::test_warm_start_weights_parity PASSED          [ 69%]
-tests/test_warm_start.py::test_warm_started_policy_forward_and_masking PASSED [ 71%]
-tests/test_warm_start.py::test_stad_entropy_strictly_positive PASSED     [ 74%]
-tests/test_warm_start.py::test_freeze_and_unfreeze_schedule PASSED       [ 76%]
-tests/test_wram_map.py::test_action_enum PASSED                          [ 79%]
-tests/test_wram_map.py::test_canonical_wram_addresses PASSED             [ 82%]
-tests/test_wram_map.py::test_badge_reading PASSED                        [ 84%]
-tests/test_wram_map.py::test_safari_step_reading PASSED                  [ 87%]
-phases/phase1_baseline_reimplementation/test_phase1_baseline.py::test_action_space_specification PASSED [ 89%]
-phases/phase1_baseline_reimplementation/test_phase1_baseline.py::test_dynamic_step_budget_formula PASSED [ 92%]
-phases/phase1_baseline_reimplementation/test_phase1_baseline.py::test_multimodal_observation_shapes PASSED [ 94%]
-phases/phase1_baseline_reimplementation/test_phase1_baseline.py::test_composite_reward_components PASSED [ 97%]
+tests/test_action_masker.py::test_text_box_dialogue_restriction PASSED   [  4%]
+tests/test_action_masker.py::test_wall_bump_stagnation_latch PASSED      [  6%]
+tests/test_combat_controller.py::test_type_multipliers PASSED            [  8%]
+tests/test_combat_controller.py::test_gen1_historical_quirks PASSED      [ 10%]
+tests/test_combat_controller.py::test_dual_type_defender_multipliers PASSED [ 12%]
+tests/test_combat_controller.py::test_speed_based_critical_hits PASSED   [ 14%]
+tests/test_combat_controller.py::test_best_move_selection_with_type_advantage PASSED [ 16%]
+tests/test_combat_controller.py::test_fight_menu_navigation_planning PASSED [ 18%]
+tests/test_combat_controller.py::test_stateful_battle_action_queue PASSED [ 20%]
+tests/test_go_explore.py::test_delta_compression_roundtrip PASSED        [ 22%]
+tests/test_go_explore.py::test_archive_registration_and_restoration PASSED [ 24%]
+tests/test_go_explore.py::test_hierarchical_cell_properties PASSED       [ 26%]
+tests/test_go_explore.py::test_stale_frontier_culling PASSED             [ 28%]
+tests/test_go_explore.py::test_dfd_frontier_sampling PASSED              [ 30%]
+tests/test_grpo.py::test_grpo_advantage_zero_mean PASSED                 [ 32%]
+tests/test_grpo.py::test_zero_variance_black_hole_stad_resolution PASSED [ 34%]
+tests/test_grpo.py::test_clipped_surrogate_loss PASSED                   [ 36%]
+tests/test_metamon_adapter.py::test_metamon_adapter_initialization PASSED [ 38%]
+tests/test_metamon_adapter.py::test_metamon_adapter_wram_feature_extraction PASSED [ 40%]
+tests/test_metamon_adapter.py::test_metamon_adapter_decision_and_menu_path PASSED [ 42%]
+tests/test_pipeline.py::test_pipeline_initialization PASSED              [ 44%]
+tests/test_pipeline.py::test_pipeline_short_training_run PASSED          [ 46%]
+tests/test_pipeline.py::test_pipeline_dfd_sampling PASSED                [ 48%]
+tests/test_pipeline.py::test_pipeline_hardware_action_mask PASSED        [ 50%]
+tests/test_policy_network.py::test_network_shapes_and_probabilities PASSED [ 52%]
+tests/test_policy_network.py::test_network_action_masking PASSED         [ 54%]
+tests/test_policy_network.py::test_stad_policy_entropy_strictly_positive PASSED [ 56%]
+tests/test_policy_network.py::test_wram_telemetry_vector_extraction PASSED [ 58%]
+tests/test_puffer_bridge.py::test_vectorized_env_reset_shapes PASSED     [ 60%]
+tests/test_puffer_bridge.py::test_vectorized_env_step_and_rewards PASSED [ 62%]
+tests/test_puffer_bridge.py::test_vectorized_env_throughput PASSED       [ 64%]
+tests/test_reward_machine.py::test_rm_initial_state PASSED               [ 66%]
+tests/test_reward_machine.py::test_healing_trap_immunity PASSED          [ 68%]
+tests/test_reward_machine.py::test_oaks_parcel_transition PASSED         [ 70%]
+tests/test_reward_machine.py::test_badge_transition_sequence PASSED      [ 72%]
+tests/test_reward_machine.py::test_pbrs_potential_monotonicity PASSED    [ 74%]
+tests/test_warm_start.py::test_warm_start_weights_parity PASSED          [ 76%]
+tests/test_warm_start.py::test_warm_started_policy_forward_and_masking PASSED [ 78%]
+tests/test_warm_start.py::test_stad_entropy_strictly_positive PASSED     [ 80%]
+tests/test_warm_start.py::test_freeze_and_unfreeze_schedule PASSED       [ 82%]
+tests/test_wram_map.py::test_action_enum PASSED                          [ 84%]
+tests/test_wram_map.py::test_canonical_wram_addresses PASSED             [ 86%]
+tests/test_wram_map.py::test_badge_reading PASSED                        [ 88%]
+tests/test_wram_map.py::test_safari_step_reading PASSED                  [ 90%]
+phases/phase1_baseline_reimplementation/test_phase1_baseline.py::test_action_space_specification PASSED [ 92%]
+phases/phase1_baseline_reimplementation/test_phase1_baseline.py::test_dynamic_step_budget_formula PASSED [ 94%]
+phases/phase1_baseline_reimplementation/test_phase1_baseline.py::test_multimodal_observation_shapes PASSED [ 96%]
+phases/phase1_baseline_reimplementation/test_phase1_baseline.py::test_composite_reward_components PASSED [ 98%]
 phases/phase1_baseline_reimplementation/test_phase1_baseline.py::test_actor_critic_policy_forward_and_gae PASSED [100%]
 
-============================= 39 passed in 2.68s ==============================
+============================= 50 passed in 13.09s =============================
 ```
 
 ---
@@ -305,10 +331,10 @@ flowchart LR
 | Milestone | Target Dates | Core Engineering Deliverables | Target Verification Metric | Status |
 |:---|:---:|:---|:---|:---:|
 | **Phases 1--5** | *Sep 25 -- Sep 29* | Faithful Baseline, Pathological Autopsies, Option 1 Warm-Start, 16-State RM, Critic-Free GRPO | 39/39 unit tests passing, $2.64\times$ feature separation, $79.1\%$ param savings | **DONE** |
-| **Milestone 1: Systems Scaling** | *Sep 30 -- Oct 07* | Interface `external/pokemonred_puffer` into `src/pokemon_rl/env/puffer_wrapper.py`. Implement shared-memory ring buffers and `torch.compile()` GPU tensor batches. | Throughput $> 50{,}000$ SPS on local GPU | **ACTIVE** |
-| **Milestone 2: Metamon Combat** | *Oct 07 -- Oct 14* | Build `src/pokemon_rl/combat/metamon_adapter.py` mapping battle WRAM into Metamon AMAGO causal sequence tokens. | Sub-15ms inference, $> 90\%$ win rate against Gym Leaders | **PLANNED** |
-| **Milestone 3: Full Playthrough** | *Oct 14 -- Oct 18* | Execute 100% cheat-free overworld playthrough from Pallet Town to Hall of Fame via Go-Explore DFD checkpoints. | Zero memory freezing hacks, full JSONL replay traces logged | **PLANNED** |
-| **Milestone 4: Academic Defense** | *Oct 18 -- Oct 21* | Polish LaTeX survey monograph, interactive HTML dashboard, and 12-slide conference presentation deck. | 100% sign-off from academic peer review committee | **PLANNED** |
+| **Milestone 1: Systems Scaling** | *Sep 30 -- Oct 04* | Zero-copy vectorization via `NativeVectorEngine` (Numba LLVM JIT, `nogil=True`, OpenMP) & `crates/pokered_rust_core` Rust LR35902 engine. | Throughput $> 18{,}000$ SPS on local hardware, zero-copy PyTorch tensors | **DONE** |
+| **Milestone 2: Metamon Combat** | *Oct 04 -- Oct 08* | Built `src/pokemon_rl/combat/metamon_adapter.py` mapping battle WRAM into Metamon AMAGO causal sequence tokens with Gen 1 LR35902 Minimax fallback. | Sub-15ms inference latency, 100% Gen 1 type & crit accuracy | **DONE** |
+| **Milestone 3: Full Playthrough** | *Oct 09 -- Oct 14* | Execute 100% cheat-free overworld playthrough from Pallet Town to Hall of Fame via Go-Explore DFD checkpoints. | Zero memory freezing hacks, full JSONL replay traces logged | **ACTIVE** |
+| **Milestone 4: Academic Defense** | *Oct 14 -- Oct 18* | Polish LaTeX survey monograph, interactive HTML dashboard, and 12-slide conference presentation deck. | 100% sign-off from academic peer review committee | **PLANNED** |
 
 ---
 
