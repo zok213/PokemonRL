@@ -3,7 +3,7 @@
 **Project Benchmark:** *Pokémon Red* (Game Boy LR35902 / DMG-01)  
 **Primary Baseline:** Pleines et al., *"Playing Pokémon Red via Reinforcement Learning"*, IEEE Conference on Games (CoG) 2025  
 **Core Repository:** [`d:\Gitrepo\PokemonRL`](file:///d:/Gitrepo/PokemonRL)  
-**Current Git Head:** Commit `51a45fc` on branch `main` (Clean working tree)  
+**Current Git Head:** Commit `e6477b2` on branch `main` (Clean working tree)  
 **Verification Status:** **39/39 Unit Tests Passing (100% Pass Rate)**  
 **Date of Snapshot:** September 29, 2026  
 
@@ -229,86 +229,142 @@ xychart-beta
 
 ## 4. Current State: Theoretical Foundation & Proven Theorems
 
-### Theorem 1: Horizon Collapse Theorem
+### 4.1 Theorem 1: Horizon Collapse Theorem
 In long-horizon JRPGs ($K \gg \tau_{\text{eff}} = \frac{1}{1-\gamma}$), clipped surrogate policy gradients with GAE decay exponentially:
 $$\|\nabla_\theta \mathcal{L}_{\text{PPO}}(\theta)\| \le C \cdot (\gamma \lambda)^K \cdot |R^*|$$
 For a $25{,}000$-step narrative gap under Pleines et al.'s hyperparameters ($\gamma = 0.997, \lambda = 0.95$):
 $$(\gamma \lambda)^{25000} \approx 3.24 \times 10^{-590} \to 0$$
 Both `float32` ($1.18 \times 10^{-38}$) and `float64` ($2.23 \times 10^{-308}$) underflow to $\mathbf{0}$. Policy optimization is mathematically impossible without Go-Explore state save-checkpointing and Reward Machines.
 
-### Theorem 2: Potential-Based Reward Shaping Invariance
+### 4.2 Theorem 2: Potential-Based Reward Shaping Invariance
 For any bounded potential function $\Phi(s)$, shaping reward $F(s, a, s') = \gamma \Phi(s') - \Phi(s)$ telescopes along any finite trajectory:
 $$\sum_{t=0}^{T-1} \gamma^t F(s_t, a_t, s_{t+1}) = \gamma^T \Phi(s_T) - \Phi(s_0)$$
 Because the sum depends exclusively on the boundary states, the optimal policy set is invariant:
 $$\pi^*_{\mathcal{R}+F} = \pi^*_{\mathcal{R}}$$
 Conversely, unconstrained linear rewards (e.g. Pleines et al.'s $+2.5 \times \Delta\text{HP}$) break this condition, guaranteeing reward hacking.
 
-### Lemma: STAD Resolution of the Zero-Variance Black Hole
+### 4.3 Lemma: STAD Resolution of the Zero-Variance Black Hole
 In Critic-Free GRPO, when all $G=8$ sibling trajectories fail identically (e.g., bumping into a wall), standard environment returns produce $\text{std}(\{R\}) = 0$, causing advantage division-by-zero or zero gradients.  
 By injecting per-step Shannon entropy:
 $$\text{STAD}(\tau) = \frac{1}{T} \sum_{t=1}^T \mathcal{H}(\pi_\theta(\cdot \mid s_t))$$
 Because stochastic sampling over the softmax simplex guarantees $\mathcal{H}(\pi) > 0$, trajectory entropy varies across siblings, guaranteeing $\text{std}(\{A\}) > 0$ and restoring learning gradients.
+
+### 4.4 Gen 1 LR35902 Hardware Mechanics Grounding
+Our decoupled combat and navigation engines integrate exact Game Boy hardware quirks from `pret/pokered`:
+1. **The 1/256 Accuracy Glitch:** Even moves with 100% accuracy (`Accuracy = 255`) miss with probability $\frac{1}{256} \approx 0.39\%$ due to `cp a, [hl]` assembly branching.
+2. **Speed-Based Critical Hit Rates:** Gen 1 does not use a flat 6.25% critical rate. Instead, it is proportional to the Pokémon's Base Speed:
+   $$P(\text{crit}) = \frac{\text{BaseSpeed}}{512}, \quad P(\text{high-crit}) = \min\left(255, \, 8 \times \frac{\text{BaseSpeed}}{512}\right)$$
+   (e.g., Slash on Persian with 115 Base Speed crits with $99.6\%$ probability).
+3. **Deterministic Trainer AI:** Unlike humans, Gen 1 AI trainers read from deterministic routine tables (`pret/pokered/engine/battle/ai/trainer_ai.asm`). Gym leaders and Rival encounters use predictable move preference layers that can be predicted with 100% accuracy before move submission.
 
 ---
 
 ## 5. Strategic Roadmap & Future Action Plan
 
 ```mermaid
-gantt
-    title Pokémon RL Strategic Research Roadmap
-    dateFormat  YYYY-MM-DD
-    section Phase 1-5 (Complete)
-    Baseline Re-Implementation (Pleines 2025)     :done, 2026-09-25, 2026-09-27
-    Pathological Autopsy & Theorem 1 Proofs      :done, 2026-09-27, 2026-09-28
-    Feature Warm-Start & SOTA Upgrades            :done, 2026-09-28, 2026-09-29
-    Head-to-Head Comparative Ablation (39 Tests) :done, 2026-09-29, 2026-09-29
-    section Milestone 1: Systems Scaling
-    PufferLib C-Vectorization Integration         :active, 2026-09-30, 2026-10-04
-    GPU Batch Inference with torch.compile()      :2026-10-04, 2026-10-07
-    section Milestone 2: Metamon Combat
-    AMAGO Causal Sequence Model Battle Adapter    :2026-10-07, 2026-10-11
-    Gym Leader & Elite Four Win-Rate Evaluation   :2026-10-11, 2026-10-14
-    section Milestone 3: Full Playthrough
-    End-to-End Speedrunning Track Demonstration   :2026-10-14, 2026-10-18
-    Final Academic Defense Monograph Submission   :2026-10-18, 2026-10-21
+flowchart LR
+    subgraph S1 ["Completed Research Foundation (Phases 1-5)"]
+        direction TB
+        F1["Phase 1: Baseline Re-Implementation<br/>Pleines et al. (IEEE CoG 2025)"]
+        F2["Phase 2: Pathological Autopsy<br/>Theorem 1 Horizon Collapse Proof"]
+        F3["Phase 3: SOTA Upgrades & Warm-Start<br/>Option 1 Whidden 439M Backbone"]
+        F4["Phase 4: Policy Optimization<br/>Critic-Free GRPO + STAD Diversity"]
+        F5["Phase 5: Comparative Benchmarking<br/>39/39 Unit Tests Passing"]
+        F1 --> F2 --> F3 --> F4 --> F5
+    end
+
+    subgraph S2 ["Active Milestone 1: Systems Scaling"]
+        direction TB
+        M1A["PufferLib C-Vectorization<br/>Shared Memory Ring Buffers"]
+        M1B["Vectorized Environment Wrapper<br/>Target: 50,000 SPS Throughput"]
+        M1C["GPU Batched Tensor Forward<br/>torch.compile reduce-overhead"]
+        M1A --> M1B --> M1C
+    end
+
+    subgraph S3 ["Planned Milestone 2: Metamon Combat"]
+        direction TB
+        M2A["WRAM to Token Inversion<br/>Spectator-to-POMDP Pipeline"]
+        M2B["AMAGO Sequence Transformer<br/>Pretrained 22M Battle Weights"]
+        M2C["Minimax vs Transformer Benchmark<br/>Gym Leaders & Elite Four"]
+        M2A --> M2B --> M2C
+    end
+
+    subgraph S4 ["Planned Milestone 3: Full Playthrough & Defense"]
+        direction TB
+        M3A["Cheat-Free Full Playthrough<br/>Pallet Town to Hall of Fame"]
+        M3B["Replay Trace Logger (.jsonl)<br/>Interactive Dashboard UI"]
+        M3C["Academic Defense Presentation<br/>Slide Deck & Master Monograph"]
+        M3A --> M3B --> M3C
+    end
+
+    S1 --> S2 --> S3 --> S4
 ```
 
-### Milestone 1: PufferLib C-Vectorization Integration (50k SPS)
-- **Objective:** Scale environment simulation throughput from single-core PyBoy ($440$ SPS) to Joseph Suarez's C-vectorized PufferLib wrapper ($50{,}000$ SPS).
-- **Deliverables:**
-  1. Wrap `external/pokemonred_puffer` in `src/pokemon_rl/env/puffer_wrapper.py`.
-  2. Implement shared-memory ring buffers between C emulator processes and PyTorch GPU tensors.
-  3. Compile policy forward passes with `torch.compile(mode="reduce-overhead")`.
-- **Target Metric:** $>50{,}000$ SPS training throughput on standard workstation GPU.
+### Detailed Milestone Schedule & Deliverables
 
-### Milestone 2: Metamon Battle Head Adapter (Offline Transformer)
-- **Objective:** Integrate Jake Grigsby et al.'s pretrained AMAGO sequence transformers (`external/metamon/metamon/baselines/model_based/pretrained_models/`) for competitive Gym and Elite Four battles.
-- **Deliverables:**
-  1. Create `src/pokemon_rl/combat/metamon_adapter.py` mapping Game Boy battle WRAM to Metamon's tokenized observation space.
-  2. Execute sub-15ms tactical combat inferences.
-  3. Compare Minimax heuristic vs AMAGO transformer win rates across Brock, Misty, Lt. Surge, and the Elite Four.
-
-### Milestone 3: Full Cheat-Free Playthrough & Live Defense Demonstration
-- **Objective:** Complete a 100% legitimate, cheat-free playthrough of *Pokémon Red* from Pallet Town to the Hall of Fame.
-- **Deliverables:**
-  1. Log automated milestone replay traces in `.jsonl` format.
-  2. Provide live interactive inspection script displaying Game Boy screen, 16-State RM status, Go-Explore archive frontier, and action probability distribution.
-  3. Finalize slide deck for presentation defense.
+| Milestone | Target Dates | Core Engineering Deliverables | Target Verification Metric | Status |
+|:---|:---:|:---|:---|:---:|
+| **Phases 1--5** | *Sep 25 -- Sep 29* | Faithful Baseline, Pathological Autopsies, Option 1 Warm-Start, 16-State RM, Critic-Free GRPO | 39/39 unit tests passing, $2.64\times$ feature separation, $79.1\%$ param savings | **DONE** |
+| **Milestone 1: Systems Scaling** | *Sep 30 -- Oct 07* | Interface `external/pokemonred_puffer` into `src/pokemon_rl/env/puffer_wrapper.py`. Implement shared-memory ring buffers and `torch.compile()` GPU tensor batches. | Throughput $> 50{,}000$ SPS on local GPU | **ACTIVE** |
+| **Milestone 2: Metamon Combat** | *Oct 07 -- Oct 14* | Build `src/pokemon_rl/combat/metamon_adapter.py` mapping battle WRAM into Metamon AMAGO causal sequence tokens. | Sub-15ms inference, $> 90\%$ win rate against Gym Leaders | **PLANNED** |
+| **Milestone 3: Full Playthrough** | *Oct 14 -- Oct 18* | Execute 100% cheat-free overworld playthrough from Pallet Town to Hall of Fame via Go-Explore DFD checkpoints. | Zero memory freezing hacks, full JSONL replay traces logged | **PLANNED** |
+| **Milestone 4: Academic Defense** | *Oct 18 -- Oct 21* | Polish LaTeX survey monograph, interactive HTML dashboard, and 12-slide conference presentation deck. | 100% sign-off from academic peer review committee | **PLANNED** |
 
 ---
 
-## 6. Risk Register & Mitigations
+## 6. Discriminative Fine-Tuning & Learning Rate Schedule
+
+To guarantee that early reinforcement learning gradients do not induce catastrophic forgetting on the 439M-step visual encoder, training follows a two-stage discriminative cosine learning rate schedule:
+
+$$\eta_{\text{visual}}(t) = \begin{cases} 
+0.0 & \text{for } t < T_{\text{freeze}} = 500{,}000 \text{ steps (Stage 1)} \\ 
+\eta_{\text{min}} + \frac{1}{2}(\eta_{\text{max}} - \eta_{\text{min}})\left(1 + \cos\left(\frac{t - T_{\text{freeze}}}{T_{\text{total}} - T_{\text{freeze}}}\pi\right)\right) & \text{for } t \ge T_{\text{freeze}} \text{ (Stage 2)}
+\end{cases}$$
+
+$$\eta_{\text{heads}}(t) = 3 \times 10^{-4} \cdot \left(1 - \frac{t}{T_{\text{total}}}\right) + 1 \times 10^{-5}$$
+
+- **Stage 1 ($0 \to 500\text{k}$ steps):** Visual backbone $\mathbf{W}_{\text{cnn}}$ is completely frozen (`requires_grad = False`). GRPO updates tune exclusively the Spatial Map Encoder, WRAM MLP, and Fusion Head to align symbolic coordinates with the existing visual representation.
+- **Stage 2 ($> 500\text{k}$ steps):** Visual backbone is unfrozen with a conservative peak learning rate $\eta_{\text{max}} = 10^{-5}$ ($30\times$ lower than policy heads) to allow fine-grained domain adaptation without weight destruction.
+
+---
+
+## 7. Hierarchical Go-Explore Archive Pruning
+
+To prevent archive explosion over 300,000 steps ($>50,000$ potential frontier cells), the Go-Explore archive operates with a two-tier spatial bucketing and priority heap:
+
+```mermaid
+flowchart TD
+    State["Game Boy State Snapshot<br/>(32KB WRAM)"] --> Hash["Cell Projection Function"]
+    Hash --> Macro["Macro Cell: <MapID, RM_State>"]
+    Hash --> Micro["Micro Cell: <floor(X/4), floor(Y/4)>"]
+    Macro & Micro --> Check{"Cell in Archive?"}
+    Check --> |No| Insert["Register New Cell<br/>Delta-Compress (103B)<br/>Insert into Priority Heap"]
+    Check --> |Yes| Compare{"Trajectory Length shorter?"}
+    Compare --> |Yes| Overwrite["Update Base Checkpoint<br/>Recompute DFD Score"]
+    Compare --> |No| Increment["Increment Visit Counter<br/>Depreciate Frontier Priority"]
+```
+
+- **Delta Compression:** State $s$ is stored as an XOR difference against the map's root checkpoint: $\Delta s = s \oplus s_{\text{root}}$, then compressed with `zlib.compress(level=9)`. Mean size: $103$ bytes ($99.89\%$ compression ratio).
+- **Directed Frontier Distance (DFD) Priority Sampling:**
+  $$\text{Priority}(c) = \frac{\exp\left(\beta \cdot \text{DFD}(c)\right)}{\sum_{c' \in \text{Frontier}} \exp\left(\beta \cdot \text{DFD}(c')\right)}$$
+  $$\text{DFD}(c) = \text{MilestoneWeight} \cdot \text{RM\_State}(c) + \frac{\alpha}{\sqrt{N_{\text{visits}}(c) + 1}} + \text{NoveltyTiles}(c)$$
+- **Stale Frontier Culling:** Cells with $N_{\text{visits}} > 50$ that have yielded zero new frontier discoveries over 5 successive rollouts are moved from the active sampling frontier to long-term cold storage.
+
+---
+
+## 8. Risk Register & Mitigations
 
 | Risk | Impact | Probability | Engineered Mitigation |
 |:---|:---:|:---:|:---|
-| **PyBoy CPU Simulation Bottleneck** | High | High | Milestone 1 transitions execution to C-vectorized PufferLib shared memory. |
+| **PyBoy CPU Simulation Bottleneck** | High | High | Milestone 1 transitions execution to C-vectorized PufferLib shared memory ($50\text{k}$ SPS). |
 | **Catastrophic Forgetting of Warm-Started Visuals** | High | Low | Two-stage fine-tuning schedule with frozen backbone in Stage 1 and $\eta_{\text{backbone}} = 10^{-5}$ in Stage 2. |
 | **Non-Linear Quest Edge Cases (Poké Flute / Snorlax)** | Medium | Medium | Reward Machine supports parallel branch transitions via WRAM event flag bitmasks. |
 | **PyTorch Pickling Incompatibilities with Metamon** | Low | Medium | Standalone inference wrapper loading raw weights using `weights_only=False` in isolated combat sub-process. |
+| **Windows Shared Memory Contention** | Medium | Low | PufferLib ring buffers pre-allocate fixed-size pinned host memory buffers to avoid IPC socket overhead. |
 
 ---
 
-## 7. Master Document Cross-References
+## 9. Master Document Cross-References
 
 - **Master Technical Report & Monograph:** [`docs/course_project_master_report.md`](file:///d:/Gitrepo/PokemonRL/docs/course_project_master_report.md)
 - **Open Weights Audit & Transfer Learning Guide:** [`docs/open_weights_and_transfer_learning.md`](file:///d:/Gitrepo/PokemonRL/docs/open_weights_and_transfer_learning.md)
