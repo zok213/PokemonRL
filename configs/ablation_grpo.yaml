@@ -1,0 +1,49 @@
+# ==============================================================================
+# GRPO Sibling Group Size & STAD Ablation Configuration (EXP-01 through EXP-04)
+# ==============================================================================
+
+ablation_matrix:
+  # EXP-01: Standard PPO baseline (with value critic, discount gamma=0.997)
+  exp_01_ppo_baseline:
+    algorithm: "ppo"
+    use_critic: true
+    gamma: 0.997
+    lambda_gae: 0.95
+    group_size: 1
+    use_stad: false
+
+  # EXP-02: Critic-Free GRPO with G=4 siblings, no STAD
+  exp_02_grpo_g4_no_stad:
+    algorithm: "grpo"
+    use_critic: false
+    group_size: 4
+    use_stad: false
+    tau: 0.0
+
+  # EXP-03: Critic-Free GRPO with G=8 siblings, no STAD (Zero-Variance Black Hole test)
+  exp_03_grpo_g8_no_stad:
+    algorithm: "grpo"
+    use_critic: false
+    group_size: 8
+    use_stad: false
+    tau: 0.0
+
+  # EXP-04: Critic-Free Adaptive Tau-GRPO with G=8 siblings + STAD (Proposed SOTA)
+  exp_04_grpo_g8_stad_sota:
+    algorithm: "grpo"
+    use_critic: false
+    group_size: 8
+    use_stad: true
+    tau: 0.25
+
+  # EXP-05: Critic-Free Adaptive Tau-GRPO with G=16 siblings + STAD
+  exp_05_grpo_g16_stad:
+    algorithm: "grpo"
+    use_critic: false
+    group_size: 16
+    use_stad: true
+    tau: 0.25
+
+seeds: [42, 137, 256, 1024, 2026]
+num_eval_episodes_per_seed: 20
+max_steps_per_episode: 300000

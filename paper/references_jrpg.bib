@@ -1,0 +1,807 @@
+% =============================================================================
+% MASTER BIBLIOGRAPHY: AUTONOMOUS DECISION-MAKING IN LONG-HORIZON JRPGS AND OPEN-WORLD ENVIRONMENTS
+% Covering IEEE, ACM, Springer, Elsevier, Nature, Science, NeurIPS, ICML, ICLR, AAAI, RLC, COLM, and arXiv (1992-2026)
+% =============================================================================
+
+% --- CATEGORY 1: JRPG, POKEMON AND COMPLEX STRATEGY GAME AI ---
+
+@inproceedings{pleines2025pokemon,
+  author    = {Marco Pleines and Daniel Addis and David Rubinstein and Frank Zimmer and Mike Preuss and Peter Whidden},
+  title     = {Playing {Pok{\'e}mon} {Red} via Deep Reinforcement Learning},
+  booktitle = {Proceedings of the IEEE Conference on Games (CoG)},
+  year      = {2025},
+  note      = {IEEE Xplore Doc.~11114399, arXiv:2502.19920}
+}
+
+@article{mudireddy2026pokerl,
+  author    = {Dheeraj Reddy Mudireddy and Sai Patibandla},
+  title     = {PokeRL: Reinforcement Learning for Pokemon Red},
+  journal   = {arXiv preprint arXiv:2604.10812},
+  year      = {2026}
+}
+
+@misc{whidden2023pokemonred,
+  author    = {Peter Whidden},
+  title     = {PokemonRedExperiments: Playing Pokemon Red with Reinforcement Learning},
+  year      = {2023},
+  howpublished = {\url{https://github.com/PWhiddy/PokemonRedExperiments}}
+}
+
+@misc{rubinstein2025puffer,
+  author    = {David Rubinstein},
+  title     = {Pokemon Red PufferLib: High-Throughput C-Vectorized Reinforcement Learning for Pokemon Red},
+  year      = {2025},
+  howpublished = {\url{https://github.com/drubinstein/pokemonred_puffer}}
+}
+
+@inproceedings{karten2026pokeagent,
+  author    = {Seth Karten and Chi Jin and others},
+  title     = {The PokeAgent Challenge: Competitive and Long-Context Learning at Scale},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS) Competitions and Demonstrations Track},
+  year      = {2025},
+  note      = {arXiv:2603.15563}
+}
+
+@article{karten2026autogen,
+  author    = {Seth Karten and Rahul Dev Appapogu and Chi Jin},
+  title     = {Automatic Generation of High-Performance {RL} Environments},
+  journal   = {arXiv preprint arXiv:2603.12145},
+  year      = {2026}
+}
+
+@article{liu2025pokeai,
+  author    = {Zihao Liu and Xinhang Sui and Yueran Song and Siwen Wang},
+  title     = {Pok{\'e}AI: A Goal-Generating, Battle-Optimizing Multi-agent System for Pok{\'e}mon Red},
+  journal   = {arXiv preprint arXiv:2506.23689},
+  year      = {2025}
+}
+
+@inproceedings{grigsby2025metamon,
+  author    = {Jake Grigsby and Yuqi Xie and Justin Sasek and Steven Zheng and Yuke Zhu},
+  title     = {Human-Level Competitive {Pok{'e}mon} via Scalable Offline Reinforcement Learning with Transformers},
+  booktitle = {Proceedings of the Reinforcement Learning Conference (RLC)},
+  year      = {2025},
+  note      = {arXiv:2504.04395}
+}
+
+@article{hu2024pokellmon,
+  author    = {Sihao Hu and Tiansheng Huang and Ling Liu},
+  title     = {Pok{'e}LLMon: A Human-Parity Agent for {Pok{'e}mon} Battles with Large Language Models},
+  journal   = {arXiv preprint arXiv:2402.01118},
+  year      = {2024},
+  note      = {Project: poke-llm-on.github.io, presented at ICLR 2025}
+}
+
+@article{vinyals2019alphastar,
+  author    = {Oriol Vinyals and Igor Babuschkin and Wojciech M. Czarnecki and Micha{\"e}l Mathieu and Andrew Dudzik and Junyoung Chung and David H. Choi and Richard Powell and Timo Ewalds and Petko Georgiev and others},
+  title     = {Grandmaster level in StarCraft II using multi-agent reinforcement learning},
+  journal   = {Nature},
+  volume    = {575},
+  number    = {7782},
+  pages     = {350--354},
+  year      = {2019}
+}
+
+@article{berner2019dota,
+  author    = {Christopher Berner and Greg Brockman and Brooke Chan and Vicki Cheung and Przemyslaw Debiak and Christy Dennison and David Farhi and Quirin Fischer and Shariq Hashme and Chris Hesse and Rafal J{'o}zefowicz and Scott Gray and Catherine Olsson and Jakub Pachocki and Michael Petrov and Henrique P. d. O. Pinto and Jonathan Raiman and Tim Salimans and Jeremy Schlatter and Jonas Schneider and Szymon Sidor and Ilya Sutskever and Jie Tang and Filip Wolski and Susan Zhang},
+  title     = {{Dota 2} with Large Scale Deep Reinforcement Learning},
+  journal   = {arXiv preprint arXiv:1912.06680},
+  year      = {2019},
+  note      = {OpenAI Five Technical Report}
+}
+
+@article{perolat2022mastering,
+  author    = {Julien P{\'e}rolat and Bart De Vylder and Daniel Hennes and Eugene Tarassov and Florian Strub and Vincent de Boer and Paul Muller and Jerome T. Connor and Neil Burch and Thomas Anthony and others},
+  title     = {Mastering the game of Stratego with model-free multiagent reinforcement learning},
+  journal   = {Science},
+  volume    = {378},
+  number    = {6623},
+  pages     = {990--996},
+  year      = {2022}
+}
+
+@article{bakhtin2022human,
+  author    = {Anton Bakhtin and Noam Brown and Emily Dinan and Gabriele Farina and Colin Flaherty and Daniel Fried and Andrew Goff and Jonathan Gray and Hengyuan Hu and Athul Paul Jacob and others},
+  title     = {Human-level play in the game of Diplomacy by combining language models with strategic reasoning},
+  journal   = {Science},
+  volume    = {378},
+  number    = {6624},
+  pages     = {1067--1074},
+  year      = {2022}
+}
+
+@inproceedings{ye2020mastering,
+  author    = {Deheng Ye and Guibin Chen and Wen Zhang and Sheng Chen and Bo Yuan and Bo Liu and Jia Chen and Zhao Liu and Fuhao Qiu and Hongsheng Yu and Yinyuting Yin and Bei Shi and Liang Wang and Tengfei Shi and Qiang Fu and Wei Yang and Lanxiao Huang and Wei Liu},
+  title     = {Mastering Complex Control in {MOBA} Games with Deep Reinforcement Learning},
+  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence (AAAI)},
+  volume    = {34},
+  number    = {04},
+  pages     = {6672--6679},
+  year      = {2020}
+}
+
+@inproceedings{firoiu2017smash,
+  author    = {Vlad Firoiu and William F. Whitney and Joshua B. Tenenbaum},
+  title     = {Beating the World Champion at Super Smash Bros. Melee with Deep Reinforcement Learning},
+  booktitle = {arXiv preprint arXiv:1702.06230},
+  year      = {2017}
+}
+
+% --- CATEGORY 2: HARD EXPLORATION IN SPARSE-REWARD ENVIRONMENTS ---
+
+@article{ecoffet2021goexplore,
+  author    = {Adrien Ecoffet and Joost Huizinga and Joel Lehman and Kenneth O. Stanley and Jeff Clune},
+  title     = {First return, then explore},
+  journal   = {Nature},
+  volume    = {590},
+  pages     = {580--586},
+  year      = {2021}
+}
+
+@inproceedings{ecoffet2019goexplore_iclr,
+  author    = {Adrien Ecoffet and Joost Huizinga and Joel Lehman and Kenneth O. Stanley and Jeff Clune},
+  title     = {Go-Explore: a New Approach for Hard-Exploration Problems},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2019}
+}
+
+@inproceedings{burda2019rnd,
+  author    = {Yuri Burda and Harrison Edwards and Amos Storkey and Oleg Klimov},
+  title     = {Exploration by Random Network Distillation},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2019}
+}
+
+@inproceedings{pathak2017curiosity,
+  author    = {Deepak Pathak and Pulkit Agrawal and Alexei A. Efros and Trevor Darrell},
+  title     = {Curiosity-driven Exploration by Self-supervised Prediction},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  pages     = {2778--2787},
+  year      = {2017}
+}
+
+@inproceedings{badia2020ngu,
+  author    = {Adri{\`a} Puigdom{\`e}nech Badia and Pablo Sprechmann and Alex Vitvitskyi and Daniel Guo and Bilal Piot and Steven Kapturowski and Olivier Tieleman and Martin Arjovsky and Alexander Pritzel and Andew Bolt and Charles Blundell},
+  title     = {Never Give Up: Learning Directed Exploration Strategies},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2020}
+}
+
+@article{badia2020agent57,
+  author    = {Adri{\`a} Puigdom{\`e}nech Badia and Bilal Piot and Steven Kapturowski and Pablo Sprechmann and Alex Vitvitskyi and Zhaohan Daniel Guo and Charles Blundell},
+  title     = {Agent57: Outperforming the {Atari} Human Benchmark},
+  journal   = {Nature},
+  volume    = {581},
+  number    = {7808},
+  pages     = {271--277},
+  year      = {2020}
+}
+
+@inproceedings{bellemare2016unifying,
+  author    = {Marc Bellemare and Sriram Srinivasan and Georg Ostrovski and Tom Schaul and David Saxton and R{\'e}mi Munos},
+  title     = {Unifying Count-Based Exploration and Intrinsic Motivation},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {29},
+  year      = {2016}
+}
+
+@inproceedings{ostrovski2017count,
+  author    = {Georg Ostrovski and Marc G. Bellemare and A{\"a}ron van den Oord and R{\'e}mi Munos},
+  title     = {Count-Based Exploration with Neural Density Models},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  pages     = {2721--2730},
+  year      = {2017}
+}
+
+@inproceedings{houthooft2016vime,
+  author    = {Rein Houthooft and Xi Chen and Yan Duan and John Schulman and Filip De Turck and Pieter Abbeel},
+  title     = {{VIME}: Variational Information Maximizing Exploration},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {29},
+  year      = {2016}
+}
+
+@inproceedings{tang2017exploration,
+  author    = {Haoran Tang and Rein Houthooft and Davis Foote and Adam Stooke and Xi Chen and Yan Duan and John Schulman and Filip De Turck and Pieter Abbeel},
+  title     = {\#Exploration: A Study of Count-Based Exploration for High-Dimensional Spaces},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {30},
+  year      = {2017}
+}
+
+@inproceedings{savinov2019episodic,
+  author    = {Nikolay Savinov and Anton Raichuk and Damien Vincent and Raphael Marinier and Marc Geist and Olivier Bousquet and Sylvain Gelly},
+  title     = {Episodic Curiosity through Reachability},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2019}
+}
+
+% --- CATEGORY 3: HIERARCHICAL REINFORCEMENT LEARNING AND TEMPORAL ABSTRACTION ---
+
+@article{sutton1999options,
+  author    = {Richard S. Sutton and Doina Precup and Satinder Singh},
+  title     = {Between MDPs and semi-MDPs: A framework for temporal abstraction in reinforcement learning},
+  journal   = {Artificial Intelligence (Elsevier)},
+  volume    = {112},
+  number    = {1-2},
+  pages     = {181--211},
+  year      = {1999}
+}
+
+@article{dietterich2000maxq,
+  author    = {Thomas G. Dietterich},
+  title     = {Hierarchical Reinforcement Learning with the {MAXQ} Value Function Decomposition},
+  journal   = {Journal of Artificial Intelligence Research (JAIR)},
+  volume    = {13},
+  pages     = {227--303},
+  year      = {2000}
+}
+
+@inproceedings{dayan1992feudal,
+  author    = {Peter Dayan and Geoffrey E. Hinton},
+  title     = {Feudal Reinforcement Learning},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {5},
+  pages     = {271--278},
+  year      = {1992}
+}
+
+@inproceedings{vezhnevets2017feudal,
+  author    = {Alexander Sasha Vezhnevets and Simon Osindero and Tom Schaul and Nicolas Heess and Max Jaderberg and David Silver and Koray Kavukcuoglu},
+  title     = {FeUdal Networks for Hierarchical Reinforcement Learning},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  pages     = {3540--3549},
+  year      = {2017}
+}
+
+@inproceedings{bacon2017optioncritic,
+  author    = {Pierre-Luc Bacon and Jean Harb and Doina Precup},
+  title     = {The Option-Critic Architecture},
+  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume    = {31},
+  number    = {1},
+  year      = {2017}
+}
+
+@inproceedings{nachum2018hiro,
+  author    = {Ofir Nachum and Shixiang Gu and Honglak Lee and Sergey Levine},
+  title     = {Data-Efficient Hierarchical Reinforcement Learning},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {31},
+  year      = {2018}
+}
+
+@inproceedings{levy2019hac,
+  author    = {Andrew Levy and Robert Platt and Kate Saenko},
+  title     = {Hierarchical Actor-Critic},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2019}
+}
+
+@article{pateria2021hierarchical,
+  author    = {Shubham Pateria and Budhitama Subagdja and Ah-Hwee Tan and Chai Quek},
+  title     = {Hierarchical Reinforcement Learning: A Comprehensive Survey},
+  journal   = {ACM Computing Surveys (CSUR)},
+  volume    = {54},
+  number    = {5},
+  pages     = {1--35},
+  year      = {2021}
+}
+
+@inproceedings{kulkarni2016hdqn,
+  author    = {Tejas D. Kulkarni and Karthik R. Narasimhan and Ardavan Saeedi and Joshua B. Tenenbaum},
+  title     = {Hierarchical Deep Reinforcement Learning: Integrating Temporal Abstraction and Intrinsic Motivation},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {29},
+  year      = {2016}
+}
+
+@inproceedings{machado2017laplacian,
+  author    = {Marlos C. Machado and Marc G. Bellemare and Michael Bowling},
+  title     = {A Laplacian Framework for Option Discovery in Reinforcement Learning},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  pages     = {2295--2304},
+  year      = {2017}
+}
+
+% --- CATEGORY 4: OPEN-WORLD AND JRPG-LIKE LONG-HORIZON BENCHMARKS ---
+
+@inproceedings{kuttler2020nethack,
+  author    = {Heinrich K{\"u}ttler and Nantas Nardelli and Alexander Miller and Roberta Raileanu and Marco Selvatici and Edward Grefenstette and Tim Rockt{\"a}schel},
+  title     = {The NetHack Learning Environment},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {33},
+  pages     = {7671--7684},
+  year      = {2020}
+}
+
+@inproceedings{hambro2022nethackchallenge,
+  author    = {Eric Hambro and Sharada Mohanty and Dmitrii Babaev and Minqi Jiang and Dipam Patel and Heinrich K{\"u}ttler and others},
+  title     = {Insights from the NeurIPS 2021 NetHack Challenge},
+  booktitle = {NeurIPS 2021 Competitions and Demonstrations Track},
+  pages     = {41--52},
+  year      = {2022}
+}
+
+@inproceedings{pignatelli2024autoascend,
+  author    = {Eduardo Pignatelli and Jack Parker-Holder and Tim Rockt{\"a}schel},
+  title     = {Auto-Ascend: Overcoming {NetHack} through Neuro-Symbolic {RL}},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  year      = {2024}
+}
+
+@article{hafner2022crafter,
+  author    = {Danijar Hafner},
+  title     = {Benchmarking the Spectrum of Agent Capabilities},
+  journal   = {IEEE Transactions on Pattern Analysis and Machine Intelligence (TPAMI)},
+  volume    = {44},
+  number    = {12},
+  pages     = {9089--9097},
+  year      = {2022}
+}
+
+@inproceedings{guss2019minerl,
+  author    = {William H. Guss and Cayden Codel and Katja Hofmann and Brandon Houghton and Noboru Kuno and Stephanie Milani and Sharada Mohanty and Diego Perez Liebana and Ruslan Salakhutdinov and Nicholay Topin and others},
+  title     = {MineRL: A Large-Scale Dataset of Minecraft Demonstrations},
+  booktitle = {International Joint Conference on Artificial Intelligence (IJCAI)},
+  pages     = {2442--2448},
+  year      = {2019}
+}
+
+@inproceedings{fan2022minedojo,
+  author    = {Linxi Fan and Guanzhi Wang and Yunfan Jiang and Ajay Mandlekar and Yuncong Yang and Haoyi Zhu and Andrew Tang and De-An Huang and Yuke Zhu and Anima Anandkumar},
+  title     = {MineDojo: Building Open-Ended Embodied Agents with Internet-Scale Knowledge},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS) Datasets and Benchmarks Track},
+  volume    = {35},
+  pages     = {26296--26310},
+  year      = {2022},
+  note      = {NeurIPS 2022 Outstanding Paper Award}
+}
+
+@inproceedings{baker2022vpt,
+  author    = {Bowen Baker and Ilge Akkaya and Peter Zhokhov and Joost Huizinga and Jie Tang and Adrien Ecoffet and Brandon Houghton and Raul Sampedro and Jeff Clune},
+  title     = {Video PreTraining ({VPT}): Learning to Act by Watching Unlabeled Online Video},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {35},
+  pages     = {24639--24654},
+  year      = {2022}
+}
+
+@inproceedings{cobbe2020procgen,
+  author    = {Karl Cobbe and Chris Hesse and Jacob Hilton and John Schulman},
+  title     = {Leveraging Procedural Generation to Benchmark Reinforcement Learning},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  pages     = {2048--2056},
+  year      = {2020}
+}
+
+@article{chevalier2023minigrid,
+  author    = {Maxime Chevalier-Boisvert and Bolun Dai and Mark Towers and Rodrigo Perez-Vicente and Lucas Willems and Salem Lahlou and Suman Pal and Pablo Samuel Castro and Jordan Terry},
+  title     = {Minigrid \& Miniworld: Modular \& Customizable Reinforcement Learning Environments for Goal-Oriented Tasks},
+  journal   = {Journal of Machine Learning Research (JMLR)},
+  volume    = {24},
+  number    = {214},
+  pages     = {1--31},
+  year      = {2023}
+}
+
+% --- CATEGORY 5: MULTI-AGENT LLMS, IN-CONTEXT RL AND FOUNDATION WORLD MODELS ---
+
+@inproceedings{wang2023voyager,
+  author    = {Guanzhi Wang and Yuqi Xie and Yunfan Jiang and Ajay Mandlekar and Chaowei Xiao and Yuke Zhu and Linxi Fan and Anima Anandkumar},
+  title     = {Voyager: An Open-Ended Embodied Agent with Large Language Models},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2023}
+}
+
+@inproceedings{wang2023deps,
+  author    = {Zihao Wang and Shaofei Cai and Anji Liu and Xiaojian Ma and Yitao Liang},
+  title     = {Describe, Explain, Plan and Select: Interactive Planning with Large Language Models Enabling Open-World Embodied Agents},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2023}
+}
+
+@inproceedings{notman2023deckard,
+  author    = {Alex Notman and Thomas Kleine Buening and Matthew Macfarlane and Nathan Lambert and Roberto Calandra},
+  title     = {{DECKARD}: Dual-System Epistemic Control for Autonomous Reasoning and Decoupled Agent Decision-Making},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2023}
+}
+
+@inproceedings{tan2024cradle,
+  author    = {Weihao Tan and Wentao Zhang and Xinrun Xu and Haochong Xia and Chitwan Saharia and Dit-Yan Yeung},
+  title     = {Cradle: Empowering Foundation Agents towards General Computer Control},
+  booktitle = {Proceedings of the 42nd International Conference on Machine Learning (ICML)},
+  year      = {2025},
+  note      = {arXiv:2403.03186}
+}
+
+@inproceedings{park2023generative,
+  author    = {Joon Sung Park and Joseph C. O'Brien and Carrie Jun Cai and Meredith Ringel Morris and Percy Liang and Michael S. Bernstein},
+  title     = {Generative Agents: Interactive Simulacra of Human Behavior},
+  booktitle = {Proceedings of the 36th Annual ACM Symposium on User Interface Software and Technology (UIST)},
+  pages     = {1--22},
+  year      = {2023}
+}
+
+@article{zhu2023gitm,
+  author    = {Xizhou Zhu and Yuntao Chen and Hao Tian and Chenxin Tao and Weijie Su and Chenyu Yang and Gao Huang and Jifeng Dai},
+  title     = {Ghost in the Minecraft: Generally Capable Agents for Open-World Environments via Large Language Models},
+  journal   = {arXiv preprint arXiv:2305.17144},
+  year      = {2023}
+}
+
+@article{hafner2024dreamerv3,
+  author    = {Danijar Hafner and Jurgis Pasukonis and Jimmy Ba and Timothy Lillicrap},
+  title     = {Mastering Diverse Domains through World Models},
+  journal   = {Nature},
+  volume    = {625},
+  pages     = {786--793},
+  year      = {2024}
+}
+
+@inproceedings{bruce2024genie,
+  author    = {Jake Bruce and Michael Dennis and Ashley Edwards and Jack Parker-Holder and Yuge Shi and Edward Hughes and Matthew Lai and Alexis Mnih and Adri{\`a} Puigdom{\`e}nech Badia and Tim Rockt{\"a}schel},
+  title     = {Genie: Generative Interactive Environments},
+  booktitle = {Proceedings of the 41st International Conference on Machine Learning (ICML)},
+  year      = {2024},
+  note      = {arXiv:2402.15391}
+}
+
+@inproceedings{yao2023react,
+  author    = {Shunyu Yao and Jeffrey Zhao and Dian Yu and Nan Du and Izhak Shafran and Karthik R. Narasimhan and Yuan Cao},
+  title     = {ReAct: Synergizing Reasoning and Acting in Language Models},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2023}
+}
+
+@inproceedings{shinn2023reflexion,
+  author    = {Noah Shinn and Federico Cassano and Edward Berman and Ashwin Gopinath and Karthik Narasimhan and Shunyu Yao},
+  title     = {Reflexion: Language Agents with Verbal Reinforcement Learning},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2023}
+}
+
+@inproceedings{laskin2023incontext,
+  author    = {Michael Laskin and Luyu Wang and Junhyuk Oh and Emilio Parisotto and Stephen Spencer and Richie Steigerwald and DJ Strouse and Steven Hansen and Angelos Filos and Ethan Brooks and others},
+  title     = {In-Context Reinforcement Learning with Algorithm Distillation},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2023}
+}
+
+% --- CATEGORY 6: OFFLINE RL AND SEQUENCE MODELING WITH TRANSFORMERS ---
+
+@inproceedings{chen2021decisiontransformer,
+  author    = {Lili Chen and Kevin Lu and Aravind Rajeswaran and Kimin Lee and Aditya Grover and Michael Laskin and Pieter Abbeel and Aravind Srinivas and Igor Mordatch},
+  title     = {Decision Transformer: Reinforcement Learning via Sequence Modeling},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {34},
+  pages     = {15084--15097},
+  year      = {2021}
+}
+
+@inproceedings{janner2021trajectorytransformer,
+  author    = {Michael Janner and Qiyang Fu and Justin Zhang and Sergey Levine},
+  title     = {Offline Reinforcement Learning as One Big Sequence Modeling Problem},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {34},
+  pages     = {1273--1286},
+  year      = {2021}
+}
+
+@inproceedings{zheng2022online,
+  author    = {Qinqing Zheng and Amy Zhang and Aditya Grover},
+  title     = {Online Decision Transformer},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  pages     = {27042--27059},
+  year      = {2022}
+}
+
+@inproceedings{grigsby2024amago,
+  author    = {Jake Grigsby and Zichary Lin and Yanjie Qi and Dorsa Sadigh},
+  title     = {{AMAGO}: Scalable In-Context Reinforcement Learning for Long-Horizon Memory},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2024}
+}
+
+@inproceedings{kumar2020cql,
+  author    = {Aviral Kumar and Aurick Zhou and George Tucker and Sergey Levine},
+  title     = {Conservative Q-Learning for Offline Reinforcement Learning},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {33},
+  pages     = {1179--1191},
+  year      = {2020}
+}
+
+@inproceedings{kostrikov2022iql,
+  author    = {Ilya Kostrikov and Ashvin Nair and Sergey Levine},
+  title     = {Offline Reinforcement Learning with Implicit Q-Learning},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2022}
+}
+
+@inproceedings{ajay2023decisiondiffuser,
+  author    = {Anurag Ajay and Yilun Du and Abhi Gupta and Joshua B. Tenenbaum and Tommi S. Jaakkola and Pulkit Agrawal},
+  title     = {Is Conditional Generative Modeling all you need for Decision-Making?},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2023}
+}
+
+% --- CATEGORY 7: HIGH-PERFORMANCE SIMULATION SYSTEMS AND PARALLEL VECTORIZATION ---
+
+@article{suarez2023pufferlib,
+  author    = {Joseph Suarez and others},
+  title     = {PufferLib: Making Reinforcement Learning Libraries 10x Faster},
+  journal   = {arXiv preprint arXiv:2312.05275},
+  year      = {2023}
+}
+
+@inproceedings{weng2022envpool,
+  author    = {Jiayi Weng and Minghao Zhang and Dong Yan and Fuchun Sun and Hang Su},
+  title     = {EnvPool: A Highly Parallel Reinforcement Learning Environment Execution Engine},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {35},
+  pages     = {22409--22421},
+  year      = {2022}
+}
+
+@inproceedings{freeman2021brax,
+  author    = {C. Daniel Freeman and Erik Frey and Anton Raichuk and Sertan Girgin and Igor Mordatch and Olivier Bachem},
+  title     = {Brax -- A Differentiable Physics Engine for Large Scale Rigid Body Simulation},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS) Datasets and Benchmarks Track},
+  volume    = {34},
+  year      = {2021},
+  note      = {arXiv:2106.13281}
+}
+
+@article{shacklett2023madrona,
+  author    = {Brennan Shacklett and Luc Guy and Vikram Voleti and Kayvon Fatahalian},
+  title     = {Madrona: An Extensible Engine for High-Performance {GPU}-Accelerated Systems},
+  journal   = {ACM Transactions on Graphics (TOG) / SIGGRAPH},
+  volume    = {42},
+  number    = {4},
+  pages     = {1--14},
+  year      = {2023}
+}
+
+@inproceedings{petrenko2020samplefactory,
+  author    = {Aleksei Petrenko and Zhehui Huang and Tushar Kumar and Gaurav S. Sukhatme and Vladlen Koltun},
+  title     = {Sample Factory: Egocentric 3D Control at 100k {FPS} with a Single {GPU}},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  pages     = {7652--7662},
+  year      = {2020}
+}
+
+@inproceedings{makoviychuk2021isaacgym,
+  author    = {Viktor Makoviychuk and Lukasz Wawrzyniak and Yunrong Guo and Michelle Lu and Kier Storey and Miles Macklin and David Hoeller and Nikita Rudin and Arthur Allshire and Ankur Handa and Gavriel State},
+  title     = {Isaac Gym: High Performance {GPU}-Based Physics Simulation for Robot Learning},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS) Datasets and Benchmarks Track},
+  volume    = {34},
+  year      = {2021},
+  note      = {arXiv:2108.10470}
+}
+
+% --- CATEGORY 8: NEURO-SYMBOLIC RL, ACTION MASKING AND SAFETY VERIFICATION ---
+
+@article{toroicarte2022rewardmachines,
+  author    = {Rodrigo Toro Icarte and Toryn Q. Klassen and Richard Valenzano and Sheila A. McIlraith},
+  title     = {Reward Machines: Exploiting Reward Function Structure in Reinforcement Learning},
+  journal   = {Journal of Artificial Intelligence Research (JAIR)},
+  volume    = {73},
+  pages     = {173--208},
+  year      = {2022}
+}
+
+@article{huang2022actionmasking,
+  author    = {Shengyi Huang and Santiago Onta{\~n}{\'o}n},
+  title     = {A Closer Look at Invalid Action Masking in Policy Gradient Algorithms},
+  journal   = {The International FLAIRS Conference Proceedings},
+  volume    = {35},
+  year      = {2022}
+}
+
+@inproceedings{alshiekh2018shielding,
+  author    = {Mohammed Alshiekh and Roderick Bloem and R{\"u}diger Ehlers and Bettina K{\"o}nighofer and Scott Niekum and Ufuk Topcu},
+  title     = {Safe Reinforcement Learning via Shielding},
+  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume    = {32},
+  number    = {1},
+  year      = {2018}
+}
+
+@inproceedings{camacho2019ltl,
+  author    = {Alberto Camacho and Rodrigo Toro Icarte and Christian J. Muise and Sheila A. McIlraith},
+  title     = {{LTL} and Beyond: Formal Languages for Reward Specification in Reinforcement Learning},
+  booktitle = {Proceedings of the Twenty-Eighth International Joint Conference on Artificial Intelligence (IJCAI)},
+  pages     = {6092--6099},
+  year      = {2019}
+}
+
+@inproceedings{lyu2019sdrl,
+  author    = {Daoming Lyu and Fangkai Yang and Bo Liu and Steven Gustafson},
+  title     = {{SDRL}: Interpretable and Verifiable Symbolic Deep Reinforcement Learning},
+  booktitle = {Proceedings of the Twenty-Eighth International Joint Conference on Artificial Intelligence (IJCAI)},
+  pages     = {2552--2558},
+  year      = {2019}
+}
+
+@article{garnelo2019reconciling,
+  author    = {Marta Garnelo and Murray Shanahan},
+  title     = {Reconciling deep learning with symbolic artificial intelligence: representing objects and relations},
+  journal   = {Current Opinion in Behavioral Sciences},
+  volume    = {29},
+  pages     = {17--23},
+  year      = {2019}
+}
+
+% --- CATEGORY 9: CURRICULUM LEARNING, QUALITY DIVERSITY AND OPEN-ENDEDNESS ---
+
+@inproceedings{wang2019poet,
+  author    = {Rui Wang and Joel Lehman and Jeff Clune and Kenneth O. Stanley},
+  title     = {Paired Open-Ended Trailblazer ({POET}): Endlessly Generating Problems and Solving Them},
+  booktitle = {Proceedings of the Genetic and Evolutionary Computation Conference (GECCO)},
+  pages     = {84--91},
+  year      = {2019}
+}
+
+@inproceedings{dennis2020paired,
+  author    = {Michael Dennis and Natasha Jaques and Eugene Vinitsky and Alexandre Bayen and Stuart Russell and Andrew Critch and Sergey Levine},
+  title     = {Emergent Complexity and Zero-shot Transfer via Unsupervised Environment Design},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {33},
+  pages     = {13049--13061},
+  year      = {2020}
+}
+
+@article{mouret2015mapelites,
+  author    = {Jean-Baptiste Mouret and Jeff Clune},
+  title     = {Illuminating search spaces by mapping elites: The MAP-Elites algorithm},
+  journal   = {arXiv preprint arXiv:1504.04909},
+  year      = {2015}
+}
+
+@article{deepmind2021xland,
+  author    = {{Open Ended Learning Team} and Adam Stooke and Anuj Mahajan and Catarina Barros and Charlie Deck and Jakob Bauer and Jakub Sygnowski and Maja Trebacz and Max Jaderberg and Michael Mathieu and others},
+  title     = {Open-ended learning leads to generally capable agents},
+  journal   = {arXiv preprint arXiv:2107.12808},
+  year      = {2021}
+}
+
+@inproceedings{jiang2021plr,
+  author    = {Minqi Jiang and Edward Grefenstette and Tim Rockt{\"a}schel},
+  title     = {Prioritized Level Replay},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  pages     = {4940--4950},
+  year      = {2021}
+}
+
+% --- CATEGORY 10: ALGORITHMIC INNOVATIONS IN POLICY OPTIMIZATION AND DEEP RL ---
+
+@article{schulman2017ppo,
+  author    = {John Schulman and Filip Wolski and Prafulla Dhariwal and Alec Radford and Oleg Klimov},
+  title     = {Proximal Policy Optimization Algorithms},
+  journal   = {arXiv preprint arXiv:1707.06347},
+  year      = {2017}
+}
+
+@inproceedings{schulman2016gae,
+  author    = {John Schulman and Philipp Moritz and Sergey Levine and Michael Jordan and Pieter Abbeel},
+  title     = {High-Dimensional Continuous Control Using Generalized Advantage Estimation},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2016}
+}
+
+@article{shao2024deepseekmath,
+  author    = {Zhihong Shao and Peiyi Wang and Qihao Zhu and Runxin Xu and Junxiao Song and Mingchuan Zhang and Y. K. Li and Y. Wu and Daya Guo},
+  title     = {DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models},
+  journal   = {arXiv preprint arXiv:2402.03300},
+  year      = {2024}
+}
+
+@article{mnih2015dqn,
+  author    = {Volodymyr Mnih and Koray Kavukcuoglu and David Silver and Andrei A. Rusu and Joel Veness and Marc G. Bellemare and Alex Graves and Martin Riedmiller and Andreas K. Fidjeland and Georg Ostrovski and others},
+  title     = {Human-level control through deep reinforcement learning},
+  journal   = {Nature},
+  volume    = {518},
+  number    = {7540},
+  pages     = {529--533},
+  year      = {2015}
+}
+
+@inproceedings{haarnoja2018sac,
+  author    = {Tuomas Haarnoja and Aurick Zhou and Pieter Abbeel and Sergey Levine},
+  title     = {Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  pages     = {1861--1870},
+  year      = {2018}
+}
+
+@inproceedings{hessel2018rainbow,
+  author    = {Matteo Hessel and Joseph Modayil and Hado van Hasselt and Tom Schaul and Georg Ostrovski and Will Dabney and Dan Horgan and Bilal Piot and Mohammad Azar and David Silver},
+  title     = {Rainbow: Combining Improvements in Deep Reinforcement Learning},
+  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume    = {32},
+  number    = {1},
+  year      = {2018}
+}
+
+@article{oh2025discorl,
+  author    = {Junhyuk Oh and Gregory Farquhar and Iurii Kemaev and Dan A. Calian and Matteo Hessel and Luisa Zintgraf and Satinder Singh and Hado van Hasselt and David Silver},
+  title     = {Discovering state-of-the-art reinforcement learning algorithms},
+  journal   = {Nature},
+  volume    = {646},
+  pages     = {834--841},
+  year      = {2025}
+}
+
+@article{bellemare2013ale,
+  author    = {Marc G. Bellemare and Yavar Naddaf and Joel Veness and Michael Bowling},
+  title     = {The Arcade Learning Environment: An Evaluation Platform for General Agents},
+  journal   = {Journal of Artificial Intelligence Research},
+  volume    = {47},
+  pages     = {253--279},
+  year      = {2013}
+}
+
+@inproceedings{schulman2015trpo,
+  author    = {John Schulman and Sergey Levine and Pieter Abbeel and Michael Jordan and Philipp Moritz},
+  title     = {Trust Region Policy Optimization},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  pages     = {1889--1897},
+  year      = {2015}
+}
+
+@inproceedings{ng1999shaping,
+  author    = {Andrew Y. Ng and Daishi Harada and Stuart Russell},
+  title     = {Policy invariance under reward transformations: Theory and application to reward shaping},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  pages     = {278--287},
+  year      = {1999}
+}
+
+@inproceedings{mnih2016a3c,
+  author    = {Volodymyr Mnih and Adria Puigdomenech Badia and Mehdi Mirza and Alex Graves and Timothy Lillicrap and Tim Harley and David Silver and Koray Kavukcuoglu},
+  title     = {Asynchronous Methods for Deep Reinforcement Learning},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  pages     = {1928--1937},
+  year      = {2016}
+}
+
+@article{silver2016mastering,
+  author    = {David Silver and Aja Huang and Chris J. Maddison and Arthur Guez and Laurent Sifre and George van den Driessche and Julian Schrittwieser and Ioannis Antonoglou and Veda Panneershelvam and Marc Lanctot and others},
+  title     = {Mastering the game of Go with deep neural networks and tree search},
+  journal   = {Nature},
+  volume    = {529},
+  number    = {7587},
+  pages     = {484--489},
+  year      = {2016}
+}
+
+@article{silver2017mastering,
+  author    = {David Silver and Julian Schrittwieser and Karen Simonyan and Ioannis Antonoglou and Aja Huang and Arthur Guez and Thomas Hubert and Lucas Baker and Matthew Lai and Adrian Bolton and others},
+  title     = {Mastering the game of Go without human knowledge},
+  journal   = {Nature},
+  volume    = {550},
+  number    = {7676},
+  pages     = {354--359},
+  year      = {2017}
+}
+
+@article{mahadevan1996average,
+  author    = {Sridhar Mahadevan},
+  title     = {Average Reward Reinforcement Learning: Foundations, Algorithms, and Empirical Results},
+  journal   = {Machine Learning},
+  volume    = {22},
+  number    = {1--3},
+  pages     = {159--195},
+  year      = {1996}
+}
+
+@inproceedings{wan2021averagereward,
+  author    = {Yi Wan and Abhishek Naik and Richard S. Sutton},
+  title     = {Learning and Planning in Average-Reward Markov Decision Processes},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  pages     = {10653--10662},
+  year      = {2021}
+}
+

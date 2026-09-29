@@ -1,0 +1,57 @@
+# ==============================================================================
+# Pokémon Red Autonomous JRPG Agent — Default Production Configuration
+# Anchored on 2026 IEEE ToG / CSUR Survey Blueprint
+# ==============================================================================
+
+experiment:
+  name: "pokemon_rl_unified_sota"
+  version: "1.0.0"
+  seed: 42
+  device: "auto"  # "cuda", "cpu", "auto"
+
+environment:
+  rom_path: "roms/pokemon_red.gb"
+  emulator: "pyboy"           # "pyboy" or "pokejax"
+  frame_skip: 24              # 1 action per 24 frames (Pleines et al.)
+  max_episode_steps: 300000
+  dynamic_step_budget: true   # Budget = 10240 + 2048 * N_events
+
+agent:
+  policy:
+    visual_dim: [4, 72, 80]   # 4 stacked grayscale frames, 72x80 resolution
+    spatial_map_dim: [1, 48, 48]
+    wram_dim: 64
+    hidden_dim: 512
+    num_actions: 8
+    use_critic: false         # CRITIC-FREE GRPO (0 critic parameters)
+
+  grpo:
+    group_size: 8             # G = 8 sibling rollouts per decision fork
+    horizon: 64               # H = 64 rollout steps
+    clip_ratio: 0.2           # PPO clipped surrogate epsilon
+    tau: 0.25                 # Adaptive Tau for STAD variance injection
+    beta_kl: 0.04             # Reverse-KL divergence penalty against pi_ref
+    eps_variance: 1.0e-6      # Threshold for degenerate zero-variance detection
+
+  reward_machine:
+    num_states: 18            # U0..U16 + U_win + U_terminal
+    milestone_reward: 100.0   # Emitted strictly on quest transitions
+    self_loop_reward: 0.0     # HEALING TRAP IMMUNE: sigma_R(u, u) = 0
+    gamma: 0.997              # PBRS discount factor
+
+  exploration:
+    archive_max_cells: 100000
+    dfd_alpha: 2.0            # Directed Frontier Distance progress exponent
+    safari_bucket_size: 10    # Safari step bucketing resolution
+
+  action_masking:
+    use_hardware_joy_ignore: true  # Read wJoyIgnore (0xCD6B) for zero-leak mask
+    suppress_dialogue_movement: true
+    wall_bump_latch_threshold: 2
+    menu_spam_throttle_window: 8
+    menu_spam_throttle_limit: 2
+
+  combat:
+    decoupled: true           # Metamon offline transformer head
+    minimax_depth: 2
+    use_gen1_type_chart: true

@@ -1,0 +1,83 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# PyTorch checkpoints (large binary files)
+*.pt
+*.pth
+*.ckpt
+
+# JAX / XLA cache
+.jax_cache/
+xla_cache/
+
+# Emulator ROMs (copyrighted — never commit)
+*.gb
+*.gbc
+*.rom
+pokemon_red.gb
+PokemonRed.gb
+
+# Go-Explore save states (large)
+*.save
+*.state
+archive/
+checkpoints/
+
+# Experiment outputs
+runs/
+wandb/
+mlruns/
+lightning_logs/
+outputs/
+
+# Data files
+*.csv
+*.npy
+*.npz
+*.h5
+*.hdf5
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Logs
+*.log
+logs/
+
+# Scratch / temp
+scratch/
+tmp/
+
+# External cloned repositories (cataloged in external/README.md)
+external/*
+!external/README.md
+
+# Benchmark and metric output logs
+*_metrics.json
+eval_results.json
+train_metrics.json
