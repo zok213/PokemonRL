@@ -52,3 +52,34 @@ def test_clipped_surrogate_loss():
     assert abs(surr_loss - (-1.0)) < 1e-5
     assert abs(kl_loss - 0.0) < 1e-5
     assert abs(total_loss - (-1.0)) < 1e-5
+
+
+def test_torch_adaptive_tau_grpo_autograd():
+    """Verify PyTorch autograd loss backpropagation and optimizer update."""
+    import torch
+    import torch.nn as nn
+    from pokemon_rl.systems.grpo import TorchAdaptiveTauGRPO
+
+    policy = nn.Linear(16, 8)
+    optimizer = torch.optim.AdamW(policy.parameters(), lr=1e-3)
+    grpo = TorchAdaptiveTauGRPO(group_size=8, tau=0.25)
+
+    G = 8
+    inputs = torch.randn(G, 16)
+    logits = policy(inputs)
+    log_probs_new = torch.log_softmax(logits, dim=-1)[:, 0]
+    log_probs_old = log_probs_new.detach().clone()
+    log_probs_ref = log_probs_new.detach().clone()
+
+    returns = torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
+    adv, is_aug = grpo.compute_group_advantages(returns)
+
+    assert adv.shape == (8,)
+    assert abs(float(torch.mean(adv))) < 1e-5
+
+    metrics = grpo.update_policy(
+        policy, optimizer, log_probs_new, log_probs_old, log_probs_ref, adv
+    )
+    assert "total_loss" in metrics
+    assert "grad_norm" in metrics
+    assert metrics["grad_norm"] >= 0.0

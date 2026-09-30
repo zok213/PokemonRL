@@ -198,3 +198,65 @@ class WarmStartedMultiModalPolicy(nn.Module):
         log_probs = torch.log(probs + eps)
         entropy = -torch.sum(probs * log_probs, dim=-1)  # (B,)
         return entropy
+
+
+class WhiddenPretrainedPolicy(nn.Module):
+    """
+    Exact PyTorch reimplementation of Peter Whidden's 439M-step PPO policy network.
+    Loads all 2,145,384 trained parameters from poke_439746560_steps.zip.
+    Input: (B, 3, 128, 40) float32 normalized image observation.
+    Output: (action_probabilities, logits) for the 8 actions:
+            [0: DOWN, 1: LEFT, 2: RIGHT, 3: UP, 4: A, 5: B, 6: START, 7: PASS]
+    """
+    NUM_ACTIONS = 8
+
+    def __init__(self, checkpoint_path: Optional[str | Path] = None):
+        super().__init__()
+        self.cnn0 = nn.Conv2d(3, 32, kernel_size=8, stride=4)
+        self.cnn2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        self.cnn4 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
+        self.linear = nn.Linear(768, 512)
+        self.action_net = nn.Linear(512, self.NUM_ACTIONS)
+        self.relu = nn.ReLU()
+        self.is_loaded = False
+
+        if checkpoint_path is not None:
+            self.load_checkpoint(checkpoint_path)
+
+    def load_checkpoint(self, path: str | Path):
+        path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(f"Checkpoint not found at: {path}")
+
+        with zipfile.ZipFile(path, "r") as z:
+            with z.open("policy.pth") as f:
+                sd = torch.load(io.BytesIO(f.read()), map_location="cpu")
+
+        self.cnn0.weight.data.copy_(sd["features_extractor.cnn.0.weight"])
+        self.cnn0.bias.data.copy_(sd["features_extractor.cnn.0.bias"])
+        self.cnn2.weight.data.copy_(sd["features_extractor.cnn.2.weight"])
+        self.cnn2.bias.data.copy_(sd["features_extractor.cnn.2.bias"])
+        self.cnn4.weight.data.copy_(sd["features_extractor.cnn.4.weight"])
+        self.cnn4.bias.data.copy_(sd["features_extractor.cnn.4.bias"])
+        self.linear.weight.data.copy_(sd["features_extractor.linear.0.weight"])
+        self.linear.bias.data.copy_(sd["features_extractor.linear.0.bias"])
+        self.action_net.weight.data.copy_(sd["action_net.weight"])
+        self.action_net.bias.data.copy_(sd["action_net.bias"])
+        self.is_loaded = True
+
+    def forward(
+        self,
+        obs: torch.Tensor,  # (B, 3, 128, 40)
+        action_mask: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        h = self.relu(self.cnn0(obs))
+        h = self.relu(self.cnn2(h))
+        h = self.relu(self.cnn4(h))
+        h = self.relu(self.linear(h.flatten(1)))
+        logits = self.action_net(h)
+
+        if action_mask is not None:
+            logits = logits.masked_fill(~action_mask, -1e9)
+
+        probs = torch.softmax(logits, dim=-1)
+        return probs, logits

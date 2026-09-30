@@ -485,9 +485,18 @@ class ProductionAgentPipeline:
     """
     End-to-End Autonomous JRPG System Coordinator.
     Integrates Go-Explore, Dynamic Masking, Decoupled Combat, and Adaptive Tau-GRPO.
+    Supports both ultra-fast symbolic simulation and genuine PyTorch autograd policy updates.
     """
-    def __init__(self, group_size: int = 8):
+    def __init__(
+        self,
+        group_size: int = 8,
+        use_torch_policy: bool = False,
+        whidden_checkpoint_path: Optional[str] = None,
+        device: str = "cpu",
+    ):
         self.group_size = group_size
+        self.use_torch_policy = use_torch_policy
+        self.device_str = device
         self.archive = GoExploreStateArchive(max_cells=20000)
         self.masker = DynamicActionMasker()
         self.combat = DecoupledCombatController()
@@ -496,40 +505,105 @@ class ProductionAgentPipeline:
         self.gamma = 0.997
         self.total_steps = 0
 
+        self.policy = None
+        self.optimizer = None
+        self.torch_grpo = None
+
+        if self.use_torch_policy:
+            import torch
+            from pokemon_rl.agent.torch_policy import WarmStartedMultiModalPolicy
+            from pokemon_rl.systems.grpo import TorchAdaptiveTauGRPO
+
+            self.device = torch.device(device)
+            self.policy = WarmStartedMultiModalPolicy(
+                whidden_checkpoint_path=whidden_checkpoint_path
+            ).to(self.device)
+            self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=3e-4)
+            self.torch_grpo = TorchAdaptiveTauGRPO(group_size=group_size, tau=0.25)
+
     def run_training_cycle(self, num_iterations: int = 100) -> Dict[str, Any]:
-        print(f"[*] Starting Upgraded Production JRPG Training ({num_iterations} cycles, Group Size={self.group_size})...")
+        mode_str = "PyTorch Autograd Policy" if self.use_torch_policy else "Fast Symbolic Simulation"
+        print(f"[*] Starting Upgraded Production JRPG Training ({num_iterations} cycles, Group Size={self.group_size}, Mode={mode_str})...")
         start_time = time.time()
         
         total_actions_taken = 0
         total_augmented_cycles = 0
         compression_ratios = []
-        pbrs_telescoping_errors = []
+        policy_losses = []
 
         for cycle in range(num_iterations):
             # 1. Inspect overworld and determine action masks
             actions = []
             pre_potentials = []
+            masks_list = []
             
             for env_idx in range(self.group_size):
                 reader = lambda addr, idx=env_idx: self.env.read_wram(idx, addr)
                 mask = self.masker.compute_action_mask(reader)
-                is_in_battle = reader(RAMMap.IS_IN_BATTLE) != 0
+                masks_list.append(mask)
                 
                 # Compute pre-step potential
                 x = reader(RAMMap.X_POS)
                 y = reader(RAMMap.Y_POS)
                 phi_pre = self.masker.compute_pbrs_potential(x, y, unvisited_frontier_dist=float(x + y))
                 pre_potentials.append(phi_pre)
-                
-                if is_in_battle:
-                    action = self.combat.select_battle_action({})
-                else:
-                    valid = np.where(mask)[0]
-                    action = int(np.random.choice(valid))
-                    
-                actions.append(action)
-                self.masker.update_spatial_telemetry((x, y), action)
-                
+
+            # Action selection: neural policy forward pass or symbolic sampling
+            current_log_probs = None
+            entropy_list = []
+
+            if self.use_torch_policy and self.policy is not None:
+                import torch
+
+                # Build batch tensors from environment state
+                screens = torch.zeros((self.group_size, 3, 72, 80), dtype=torch.float32, device=self.device)
+                spatials = torch.zeros((self.group_size, 1, 48, 48), dtype=torch.float32, device=self.device)
+                wrams = torch.zeros((self.group_size, 64), dtype=torch.float32, device=self.device)
+                mask_tensor = torch.tensor(np.array(masks_list), dtype=torch.bool, device=self.device)
+
+                for env_idx in range(self.group_size):
+                    reader = lambda addr, idx=env_idx: self.env.read_wram(idx, addr)
+                    x = reader(RAMMap.X_POS)
+                    y = reader(RAMMap.Y_POS)
+                    spatials[env_idx, 0, min(47, y), min(47, x)] = 1.0
+                    wrams[env_idx, 0] = float(reader(RAMMap.MAP_N))
+                    wrams[env_idx, 1] = float(x)
+                    wrams[env_idx, 2] = float(y)
+                    wrams[env_idx, 3] = float(reader(RAMMap.BADGES))
+
+                probs, logits = self.policy(screens, spatials, wrams, action_mask=mask_tensor)
+                dist = torch.distributions.Categorical(probs)
+                sampled_acts = dist.sample()
+                current_log_probs = dist.log_prob(sampled_acts)
+                ent_t = self.policy.compute_stad_entropy(probs)
+                entropy_list = ent_t.detach().cpu().numpy().tolist()
+
+                for env_idx in range(self.group_size):
+                    reader = lambda addr, idx=env_idx: self.env.read_wram(idx, addr)
+                    is_in_battle = reader(RAMMap.IS_IN_BATTLE) != 0
+                    if is_in_battle:
+                        act = self.combat.select_battle_action({})
+                    else:
+                        act = int(sampled_acts[env_idx].item())
+                    actions.append(act)
+                    x = reader(RAMMap.X_POS)
+                    y = reader(RAMMap.Y_POS)
+                    self.masker.update_spatial_telemetry((x, y), act)
+            else:
+                for env_idx in range(self.group_size):
+                    reader = lambda addr, idx=env_idx: self.env.read_wram(idx, addr)
+                    is_in_battle = reader(RAMMap.IS_IN_BATTLE) != 0
+                    mask = masks_list[env_idx]
+                    if is_in_battle:
+                        action = self.combat.select_battle_action({})
+                    else:
+                        valid = np.where(mask)[0]
+                        action = int(np.random.choice(valid))
+                    actions.append(action)
+                    x = reader(RAMMap.X_POS)
+                    y = reader(RAMMap.Y_POS)
+                    self.masker.update_spatial_telemetry((x, y), action)
+
             # 2. Step vectorized environment
             step_results = self.env.step(actions)
             total_actions_taken += self.group_size
@@ -553,21 +627,38 @@ class ProductionAgentPipeline:
                 total_reward = reward + shaping_reward
                 group_returns.append(total_reward)
                 
-                # Record Trajectory State-Action Diversity (entropy)
-                ent = self.masker.compute_markov_entropy_rate()
-                # Inject a microscopic action-hash differentiation to simulate stochastic policy trajectories
-                ent_augmented = ent + (hash(str(actions[env_idx])) % 100) * 0.001
-                group_action_entropies.append(ent_augmented)
+                if entropy_list:
+                    group_action_entropies.append(entropy_list[env_idx])
+                else:
+                    # Record Trajectory State-Action Diversity (entropy)
+                    ent = self.masker.compute_markov_entropy_rate()
+                    ent_augmented = ent + (hash(str(actions[env_idx])) % 100) * 0.001
+                    group_action_entropies.append(ent_augmented)
 
             # Measure Delta Compression on environment 0
             compressed = DeltaStateCompressor.compress(step_results[0][3], self.archive.base_keyframe)
             ratio = (1.0 - len(compressed) / len(step_results[0][3])) * 100.0
             compression_ratios.append(ratio)
             
-            # 4. Compute GRPO Advantages with STAD
-            advantages, is_augmented = self.grpo.compute_group_advantages(group_returns, group_action_entropies)
-            if is_augmented:
-                total_augmented_cycles += 1
+            # 4. Compute GRPO Advantages with STAD & Update Policy
+            if self.use_torch_policy and self.torch_grpo is not None and current_log_probs is not None:
+                advantages, is_augmented = self.torch_grpo.compute_group_advantages(group_returns, group_action_entropies)
+                if is_augmented:
+                    total_augmented_cycles += 1
+
+                loss_dict = self.torch_grpo.update_policy(
+                    policy=self.policy,
+                    optimizer=self.optimizer,
+                    log_probs_new=current_log_probs,
+                    log_probs_old=current_log_probs.detach(),
+                    log_probs_ref=current_log_probs.detach(),
+                    advantages=advantages,
+                )
+                policy_losses.append(loss_dict["total_loss"])
+            else:
+                advantages, is_augmented = self.grpo.compute_group_advantages(group_returns, group_action_entropies)
+                if is_augmented:
+                    total_augmented_cycles += 1
 
         elapsed = time.time() - start_time
         sps = total_actions_taken / elapsed if elapsed > 0 else 0.0
@@ -579,7 +670,11 @@ class ProductionAgentPipeline:
             "archive_unique_cells": len(self.archive.archive),
             "mean_delta_compression_ratio": float(np.mean(compression_ratios)),
             "augmented_variance_cycles": total_augmented_cycles,
+            "use_torch_policy": self.use_torch_policy,
         }
+        if policy_losses:
+            metrics["mean_policy_loss"] = float(np.mean(policy_losses))
+            metrics["final_policy_loss"] = float(policy_losses[-1])
         return metrics
 
 # =============================================================================

@@ -19,7 +19,7 @@ from typing import Callable, Dict, Optional, Tuple
 
 import numpy as np
 
-from pokemon_rl.env.wram_map import RAMMap, Action
+from pokemon_rl.env.wram_map import RAMMap, Action, ACTION_TO_HW_BIT, HW_BIT_TO_ACTION
 
 
 class DynamicActionMasker:
@@ -73,12 +73,17 @@ class DynamicActionMasker:
 
         # ----------------------------------------------------------------
         # Layer 1: Hardware wJoyIgnore mask (0xCD6B)
-        # Each bit corresponds to one joypad button (matching Action enum).
-        # If bit i is SET, the Game Boy CPU is suppressing button i.
+        # Sourced from pret/pokered constants/hardware.inc B_PAD_* definitions:
+        # bit 0=A, 1=B, 2=Select, 3=Start, 4=Right, 5=Left, 6=Up, 7=Down.
+        # If the bit is SET in wJoyIgnore, the CPU discards that button input.
+        # ----------------------------------------------------------------
         joy_ignore = reader(RAMMap.JOY_IGNORE)
-        for action_idx in range(Action.NUM_ACTIONS):
-            if joy_ignore & (1 << action_idx):
-                mask[action_idx] = False
+        for act in Action:
+            if act == Action.NUM_ACTIONS:
+                continue
+            hw_bit = ACTION_TO_HW_BIT[act]
+            if joy_ignore & (1 << hw_bit):
+                mask[act] = False
 
         # ----------------------------------------------------------------
         # Layer 2: Text/dialogue context restriction

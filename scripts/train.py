@@ -28,6 +28,13 @@ def parse_args():
     parser.add_argument("--tau", type=float, default=0.25, help="Adaptive Tau temperature for STAD variance injection")
     parser.add_argument("--alpha", type=float, default=2.0, help="Directed Frontier Distance (DFD) progress exponent")
     parser.add_argument("--max-cells", type=int, default=20000, help="Maximum cells stored in Go-Explore archive")
+    parser.add_argument("--use-torch", action="store_true", help="Enable PyTorch autograd policy training")
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default="external/PokemonRedExperiments/baselines/session_4da05e87_main_good/poke_439746560_steps.zip",
+        help="Path to Whidden 439M step checkpoint for warm-start visual transfer",
+    )
     parser.add_argument("--output-json", type=str, default="train_metrics.json", help="Path to save output JSON metrics")
     return parser.parse_args()
 
@@ -42,9 +49,16 @@ def main():
     print(f"  Adaptive Tau (STAD): {args.tau}")
     print(f"  DFD Alpha Progress:  {args.alpha}")
     print(f"  Archive Max Cells:   {args.max_cells:,}")
+    print(f"  PyTorch Autograd:    {args.use_torch}")
+    if args.use_torch:
+        print(f"  Warm-Start Weights:  {args.checkpoint}")
     print("=" * 70)
 
-    pipeline = ProductionAgentPipeline(group_size=args.group_size)
+    pipeline = ProductionAgentPipeline(
+        group_size=args.group_size,
+        use_torch_policy=args.use_torch,
+        whidden_checkpoint_path=args.checkpoint if args.use_torch else None,
+    )
     t0 = time.time()
     metrics = pipeline.run_training_cycle(num_iterations=args.iterations)
     elapsed = time.time() - t0

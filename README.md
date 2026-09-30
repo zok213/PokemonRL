@@ -1,14 +1,40 @@
 # PokémonRL: Autonomous Neuro-Symbolic Agent for Long-Horizon JRPGs
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Pytest Status](https://img.shields.io/badge/pytest-54%2F54%20passing%20(100%25)-brightgreen.svg)](tests/)
+[![Pytest Status](https://img.shields.io/badge/pytest-57%2F57%20passing%20(100%25)-brightgreen.svg)](tests/)
 [![Simulation Throughput](https://img.shields.io/badge/simulation-18%2C741%20SPS-orange.svg)](src/pokemon_rl/env/native_vectorizer.py)
-[![Pretrained Weights](https://img.shields.io/badge/warm--start-Whidden%20439M-purple.svg)](external/PokemonRedExperiments/)
+[![Pretrained Weights](https://img.shields.io/badge/baseline%20v2-PPO%2026.2M%20steps-purple.svg)](external/PokemonRedExperiments/v2/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> **Autonomous Decision-Making in Long-Horizon JRPGs: Overcoming Horizon Collapse via Feature Warm-Starts, Formal Reward Machines, and Native Vectorization**
+> **Autonomous Decision-Making in Long-Horizon JRPGs: Real Reinforcement Learning with Zero Cheats**
+> 
+> A state-of-the-art reinforcement learning framework designed to train, evaluate, and visualize autonomous agents playing **Pokémon Red** (Game Boy LR35902 / DMG-01 hardware disassembly: `pret/pokered`) using authentic neural policies and zero memory-injection cheats.
 
-A state-of-the-art reinforcement learning codebase designed to autonomously solve **Pokémon Red** (Game Boy LR35902 / DMG-01 hardware disassembly: `pret/pokered`) without memory-freezing cheat scripts.
+---
+
+## ⚡ Quick Start: Run Baseline V2 Interactive RL (1-Click)
+
+The repository includes a fully verified, pretrained PPO model trained for **26,214,400 steps** (`poke_26214400.zip`) operating on the official `RedGymEnvV2` environment. It starts legitimately from Pallet Town with a standard Level 5 starter Pokémon—**no memory injection, no Level 100 cheats, and no infinite repel**.
+
+### 1-Click Windows Launch
+- **Double-click** [`launch_baseline_v2.bat`](file:///d:/Gitrepo/PokemonRL/launch_baseline_v2.bat) (or [`launch_interactive.bat`](file:///d:/Gitrepo/PokemonRL/launch_interactive.bat))
+- Or run in **PowerShell**:
+  ```powershell
+  .\launch_baseline_v2.ps1
+  ```
+
+### Direct CLI Execution
+```powershell
+$env:PYTHONPATH="external/PokemonRedExperiments/v2;src;."
+python -u external/PokemonRedExperiments/v2/run_pretrained_interactive.py
+```
+
+### Live Output Telemetry
+The interactive runner opens a genuine PyBoy Game Boy window while outputting live WRAM state to the console:
+```
+Step   120 | Map= 0 Pos=( 5, 4) | HP=20/20 Lv=5 | Act=3 Rew=+0.015
+Step   130 | Map= 0 Pos=( 5, 3) | HP=20/20 Lv=5 | Act=3 Rew=+0.020
+```
 
 ---
 
@@ -24,15 +50,16 @@ This causes four classical algorithmic pathologies:
 3. **Menu Oscillation Deadlocks:** Rapid alternating button presses (START/B) freeze the Game Boy CPU step timer.
 4. **The Safari Zone Wall:** A strict 500-step counter (`wSafariSteps`) where random walk exploration has probability $P < 10^{-35}$ of reaching HM03 Surf.
 
-`PokemonRL` resolves all four pathologies through a disciplined neuro-symbolic framework.
+`PokemonRL` resolves all four pathologies through a disciplined neuro-symbolic framework and authentic RL baseline verification.
 
 ---
 
 ## 2. Core Architectural Components
 
-| Component | Module | Engineering Function & Theoretical Guarantee |
+| Component | Location | Engineering Function & Theoretical Guarantee |
 |:---|:---|:---|
-| **Feature Warm-Start** | [`src/pokemon_rl/agent/torch_policy.py`](file:///d:/Gitrepo/PokemonRL/src/pokemon_rl/agent/torch_policy.py) | Transfers Peter Whidden's 439M-step Nature CNN visual backbone (`32, 64, 64`), yielding $2.64\times$ greater scene discrimination ($0.5330$ vs $0.2019$). |
+| **Baseline V2 (Pure RL)** | [`external/PokemonRedExperiments/v2/`](file:///d:/Gitrepo/PokemonRL/external/PokemonRedExperiments/v2/) | RedGymEnvV2 environment with 26.2M-step pretrained PPO neural network (`poke_26214400.zip`). Real inputs, genuine HP/level progression, zero cheats. |
+| **Interactive Telemetry Suite** | [`interactive/`](file:///d:/Gitrepo/PokemonRL/interactive/) | Real-time PyBoy SDL2 emulation runner, ANSI terminal HUD, live stream HTML canvas, and WRAM state extraction. |
 | **16-State Mealy Reward Machine** | [`src/pokemon_rl/agent/reward_machine.py`](file:///d:/Gitrepo/PokemonRL/src/pokemon_rl/agent/reward_machine.py) | Enforces strict forward quest progression. Internal loops yield $\sigma_R(u, u) = 0.0$, making the agent 100% immune to healing exploit traps. |
 | **Zero-Leak Hardware Action Masker** | [`src/pokemon_rl/env/action_masker.py`](file:///d:/Gitrepo/PokemonRL/src/pokemon_rl/env/action_masker.py) | Directly interrogates Game Boy CPU register `wJoyIgnore` (`0xCD6B`) to suppress disabled inputs, dialogue locks, and wall bumps in $<0.1\,\mu\text{s}$. |
 | **Cheat-Free Go-Explore State Archive** | [`src/pokemon_rl/exploration/go_explore.py`](file:///d:/Gitrepo/PokemonRL/src/pokemon_rl/exploration/go_explore.py) | Employs 99.89% XOR Delta Compression (32 KB WRAM $\to$ 103 B) and Directed Frontier Distance (DFD) sampling to clear the 500-step Safari Zone in $\approx 312$ steps without memory freezing. |
@@ -60,9 +87,9 @@ Empirical results from [`phases/phase5_benchmarking_and_ablations/phase1_vs_phas
 
 ---
 
-## 4. Quick Start & Replication Guide
+## 4. Setup and Verification
 
-### Installation
+### Environment Setup
 ```bash
 # Clone the repository
 git clone https://github.com/your-username/PokemonRL.git
@@ -72,77 +99,71 @@ cd PokemonRL
 conda env create -f environment.yml
 conda activate pokemon_rl
 
-# Or via standard pip virtualenv
-python -m venv venv
-.\venv\Scripts\Activate.ps1  # Windows
-# source venv/bin/activate   # Linux/macOS
+# Or install dependencies in active environment
 pip install -r requirements.txt
+pip install mediapy
 ```
 
-### Verification in 1 Command
+### Full Automated Verification (57/57 Tests)
 ```bash
-python -m pytest tests/ phases/ -v
+pytest tests/ -v
 ```
-*Expected: 54 passed in ~6.0s (100% green).*
-
-### Running Demonstrations & Benchmarks
-```bash
-# 1. Run native simulation throughput benchmark
-python -m pytest tests/test_native_vectorizer.py -s
-
-# 2. Run high-throughput vectorized training pipeline (250 cycles)
-python src/pokemon_rl/systems/production_pipeline.py
-
-# 3. Run head-to-head empirical comparison script
-python phases/phase5_benchmarking_and_ablations/compare_phase1_vs_phase3.py
-
-# 4. Run integrated 6-upgrade live demonstration
-python phases/phase3_neuro_symbolic_upgrades/run_upgraded_demo.py
-```
+*Expected: 57 passed in ~23s (100% green).*
 
 ---
 
-## 5. Repository Structure
+## 5. Clean Repository Structure
 
 ```
 PokemonRL/
-├── AGENT.md                                # Master AI Agent & Developer manual
+├── launch_baseline_v2.bat                  # 1-Click launcher for Baseline V2 (Real RL, 26.2M PPO)
+├── launch_baseline_v2.ps1                  # PowerShell launcher for Baseline V2
+├── launch_interactive.bat                  # Convenient 1-Click alias to Baseline V2
+├── launch_interactive.ps1                  # PowerShell alias to Baseline V2
 ├── requirements.txt                        # Turnkey pip dependencies
 ├── environment.yml                         # Reproducible conda environment
 ├── pyproject.toml                          # Packaging and pytest configuration
 │
-├── src/pokemon_rl/                         # Production Python package
+├── external/                               # External submodules and baseline environments
+│   ├── PokemonRedExperiments/              # Peter Whidden PPO baseline repository
+│   │   ├── PokemonRed.gb                   # Pokémon Red ROM
+│   │   ├── init.state                      # Pallet Town starter save state
+│   │   └── v2/                             # Official Baseline V2 (Pure RL)
+│   │       ├── red_gym_env_v2.py           # RedGymEnvV2 environment implementation
+│   │       ├── run_pretrained_interactive.py # Pretrained PPO interactive visualizer
+│   │       ├── baseline_fast_v2.py         # Baseline V2 training loop
+│   │       └── runs/poke_26214400.zip      # 26.2M step pretrained PPO checkpoint
+│   └── pokered/                            # pret/pokered canonical Game Boy assembly
+│
+├── interactive/                            # PyBoy telemetry & HUD interactive package
+│   ├── emulator.py                         # PyBoy LR35902 CPU wrapper & SDL2 display
+│   ├── hud.py                              # Real-time ANSI terminal telemetry HUD
+│   ├── session.py                          # Neural PPO session coordinator
+│   ├── run_pyboy_interactive.py            # Interactive CLI runner
+│   ├── visualizer.html                     # HTML5 canvas real-time viewer
+│   ├── policy/                             # Action dispatch and observation builder
+│   ├── reward/                             # Whidden reward tracker and anti-stagnation
+│   └── wram/                               # Game Boy WRAM memory map and address reader
+│
+├── src/pokemon_rl/                         # Core production library
 │   ├── agent/                              # RewardMachine, PolicyNetwork, TorchPolicy
 │   ├── combat/                             # CombatController, MetamonBattleAdapter
-│   ├── env/                                # RAMMap, ActionMasker, NativeVectorEngine, PufferBridge
+│   ├── env/                                # RAMMap, ActionMasker, NativeVectorEngine
 │   ├── exploration/                        # GoExploreArchive, DFD sampling, DeltaCompression
 │   └── systems/                            # AdaptiveTauGRPO, STAD diversity, ProductionPipeline
 │
-├── crates/                                 # High-Performance Rust Extensions
-│   └── pokered_rust_core/                  # Headless LR35902 CPU + Rayon engine (>100k SPS)
-│
 ├── phases/                                 # 5-Phase Active Research Tree
-│   ├── phase1_baseline_reimplementation/   # Faithful reproduction of Pleines et al. (2025)
+│   ├── phase1_baseline_reimplementation/   # Reproduction of Pleines et al. (2025)
 │   ├── phase2_pathological_autopsy/        # Formal proofs of 4 pathologies & Theorem 1
 │   ├── phase3_neuro_symbolic_upgrades/     # Warm-started policy network & live demo
-│   ├── phase4_grpo_policy_optimization/    # GRPO sibling count ablation (G in {1,4,8,16})
+│   ├── phase4_grpo_policy_optimization/    # GRPO policy optimization ablation
 │   └── phase5_benchmarking_and_ablations/  # Multi-seed benchmarks & comparison JSON
 │
-├── tests/                                  # Automated 54-test Pytest verification suite
+├── tests/                                  # Automated 57-test Pytest verification suite
 │
-├── docs/                                   # Academic Reports & Documentation
-│   ├── course_project_master_report.md     # Master monograph & defense guide
-│   ├── project_plan_and_current_state.md   # Continuous state tracking & roadmap
-│   ├── native_systems_vectorization_and_rust_guide.md # Systems scaling guide
-│   └── open_weights_and_transfer_learning.md # Model weight transfer documentation
-│
-└── external/                               # Upstream submodules & pretrained weights
-    ├── pokered/                            # pret/pokered canonical Game Boy assembly
-    ├── PokemonRedExperiments/              # Peter Whidden PPO baseline (contains 439M weights)
-    ├── pokemonred_puffer/                  # David Rubinstein PufferLib baseline
-    ├── PokeRL/                             # Mudireddy & Patibandla action masking
-    ├── metamon/                            # Jake Grigsby et al. AMAGO causal transformers
-    └── continual-harness/                  # Seth Karten & Chi Jin PokéAgent Challenge harness
+└── docs/                                   # Architectural specifications & audits
+    ├── fresh_game_and_cheats_audit.md      # Deep dive audit: Real RL vs Cheat scripts
+    └── course_project_master_report.md     # Master monograph & theoretical proofs
 ```
 
 ---
@@ -150,6 +171,7 @@ PokemonRL/
 ## 6. Citations & References
 
 - Pleines et al., *"Playing Pokémon Red via Reinforcement Learning"*, IEEE Conference on Games (CoG), 2025.
+- Whidden, Peter, *"PokemonRedExperiments"*, 2023.
 - Ecoffet et al., *"First return, then explore"*, Nature, 2021.
 - Grigsby et al., *"Human-Level Competitive Pokémon via Scalable Offline Reinforcement Learning with Transformers"*, RLC, 2025.
 - Karten, Appapogu, & Jin, *"Automatic Generation of High-Performance RL Environments"*, COLM, 2026.

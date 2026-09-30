@@ -18,7 +18,8 @@ from enum import IntEnum
 class Action(IntEnum):
     """
     Game Boy joypad button enumeration.
-    Matches pret/pokered button bit ordering.
+    Internal index used across policy networks and environments:
+      0: UP, 1: DOWN, 2: LEFT, 3: RIGHT, 4: A, 5: B, 6: START, 7: SELECT
     """
     UP     = 0
     DOWN   = 1
@@ -29,6 +30,41 @@ class Action(IntEnum):
     START  = 6
     SELECT = 7
     NUM_ACTIONS = 8
+
+
+# Canonical Game Boy LR35902 hardware joypad register bit positions
+# Defined in pret/pokered: constants/hardware.inc (B_PAD_*)
+HW_BIT_A      = 0  # bit 0 (0x01): A Button
+HW_BIT_B      = 1  # bit 1 (0x02): B Button
+HW_BIT_SELECT = 2  # bit 2 (0x04): Select Button
+HW_BIT_START  = 3  # bit 3 (0x08): Start Button
+HW_BIT_RIGHT  = 4  # bit 4 (0x10): D-Pad Right
+HW_BIT_LEFT   = 5  # bit 5 (0x20): D-Pad Left
+HW_BIT_UP     = 6  # bit 6 (0x40): D-Pad Up
+HW_BIT_DOWN   = 7  # bit 7 (0x80): D-Pad Down
+
+# Bidirectional mapping between Action enum and physical Game Boy hardware bits
+ACTION_TO_HW_BIT = {
+    Action.A: HW_BIT_A,
+    Action.B: HW_BIT_B,
+    Action.SELECT: HW_BIT_SELECT,
+    Action.START: HW_BIT_START,
+    Action.RIGHT: HW_BIT_RIGHT,
+    Action.LEFT: HW_BIT_LEFT,
+    Action.UP: HW_BIT_UP,
+    Action.DOWN: HW_BIT_DOWN,
+}
+
+HW_BIT_TO_ACTION = {
+    HW_BIT_A: Action.A,
+    HW_BIT_B: Action.B,
+    HW_BIT_SELECT: Action.SELECT,
+    HW_BIT_START: Action.START,
+    HW_BIT_RIGHT: Action.RIGHT,
+    HW_BIT_LEFT: Action.LEFT,
+    HW_BIT_UP: Action.UP,
+    HW_BIT_DOWN: Action.DOWN,
+}
 
 
 class RAMMap:
@@ -85,10 +121,9 @@ class RAMMap:
     JOY_IGNORE    = 0xCD6B  # wJoyIgnore     — HARDWARE INPUT MASK
                             # The Game Boy CPU writes a bitmask of buttons to
                             # silently discard during cutscenes/evolutions.
-                            # bit 0=Up, 1=Down, 2=Left, 3=Right, 4=A, 5=B,
-                            # 6=Start, 7=Select (matching Action enum).
-                            # Read this BEFORE computing action masks for
-                            # zero-leak suppression without heuristics.
+                            # bit 0=A, 1=B, 2=Select, 3=Start, 4=Right, 5=Left,
+                            # 6=Up, 7=Down (matching pret/pokered hardware.inc).
+                            # Read this via ACTION_TO_HW_BIT for zero-leak suppression.
                             # Reads as 0x00 during free overworld movement.
 
     # =========================================================================

@@ -25,7 +25,7 @@ import math
 import struct
 import zlib
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 
 # =============================================================================
@@ -141,24 +141,34 @@ RM_STATE_POTENTIAL["U_TERMINAL"] = 0.0
 # =============================================================================
 class WRAMReader:
     """
-    Abstract interface for reading Game Boy WRAM registers.
-    In production, wraps PyBoy's memory access:
-        pyboy.memory[addr]
-    In testing, wraps a raw 32,768-byte bytearray.
+    Interface for reading Game Boy WRAM registers.
+    Supports either:
+      - Raw 8KB bytearray/bytes (0xC000-0xDFFF mapped to 0-8191)
+      - PyBoy memory bus wrapper supporting __getitem__(addr: int) -> int
     """
-    def __init__(self, mem: bytearray):
-        assert len(mem) == 8192, f"Expected 8KB WRAM (0xC000-0xDFFF), got {len(mem)} bytes"
+    def __init__(self, mem: Any):
+        if isinstance(mem, (bytearray, bytes)):
+            assert len(mem) == 8192, f"Expected 8KB WRAM (0xC000-0xDFFF), got {len(mem)} bytes"
+            self.is_buffer = True
+        else:
+            self.is_buffer = False
         self.mem = mem
 
     def read(self, addr: int) -> int:
-        """Read 1 byte from WRAM address (0xC000-0xDFFF mapped to 0-8191)."""
-        # Game Boy WRAM: 0xC000–0xDFFF (8 KB)
-        # Extended WRAM (WRAM Bank 1): 0xD000–0xDFFF
-        # We store raw memory starting at 0xC000
-        offset = addr - 0xC000
-        if 0 <= offset < len(self.mem):
-            return self.mem[offset]
-        return 0
+        """Read 1 byte from WRAM address (0xC000-0xDFFF mapped to 0-8191 if buffer, else direct)."""
+        if self.is_buffer:
+            offset = addr - 0xC000
+            if 0 <= offset < len(self.mem):
+                return self.mem[offset]
+            return 0
+        try:
+            return int(self.mem[addr])
+        except Exception:
+            return 0
+
+    def __getitem__(self, addr: int) -> int:
+        """Allow subscript indexing reader[addr] identical to pyboy.memory[addr]."""
+        return self.read(addr)
 
     def read_event_flag(self, byte_offset: int, bit_idx: int) -> bool:
         """Read a single event flag bit from wEventFlags base 0xD747."""

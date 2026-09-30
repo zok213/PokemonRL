@@ -32,6 +32,7 @@ except ImportError:
 if HAS_NUMBA:
     @njit(parallel=True, nogil=True, fastmath=True)
     def _parallel_decode_wram_batch(
+        actions: np.ndarray,              # (B,) uint8
         raw_wram_buffer: np.ndarray,      # (B, 32768) uint8
         out_features: np.ndarray,         # (B, 64) float32
         out_action_masks: np.ndarray,     # (B, 8) uint8 (bool)
@@ -40,23 +41,44 @@ if HAS_NUMBA:
         gamma: float
     ):
         """
-        Executes parallel WRAM feature extraction, hardware action masking,
-        and reward calculation across B environments in pure native machine code (no GIL).
+        Executes parallel WRAM state transition, feature extraction,
+        hardware action masking, and reward calculation across B environments (NOGIL).
         """
         for b in prange(batch_size):
+            act = actions[b]
+
             # Extract LR35902 Game Boy WRAM addresses (canonical pokered)
             # wCurMap: 0xD35E -> offset 0x135E (relative to 0xC000 WRAM base)
             cur_map = raw_wram_buffer[b, 0x135E]
             # wXCoord: 0xD362 -> offset 0x1362
-            x_coord = raw_wram_buffer[b, 0x1362]
+            x_coord = int(raw_wram_buffer[b, 0x1362])
             # wYCoord: 0xD361 -> offset 0x1361
-            y_coord = raw_wram_buffer[b, 0x1361]
+            y_coord = int(raw_wram_buffer[b, 0x1361])
             # wObtainedBadges: 0xD356 -> offset 0x1356
             badges = raw_wram_buffer[b, 0x1356]
             # wIsInBattle: 0xD057 -> offset 0x1057
             is_battle = raw_wram_buffer[b, 0x1057]
             # wJoyIgnore: 0xCD6B -> offset 0x0D6B
             joy_ignore = raw_wram_buffer[b, 0x0D6B]
+
+            # Apply directional movements
+            # Support both 4=UP, 5=DOWN, 6=LEFT, 7=RIGHT and 0=UP, 1=DOWN, 2=LEFT, 3=RIGHT
+            if act == 4 or act == 0:  # UP
+                if y_coord > 0:
+                    y_coord -= 1
+            elif act == 5 or act == 1:  # DOWN
+                if y_coord < 255:
+                    y_coord += 1
+            elif act == 6 or act == 2:  # LEFT
+                if x_coord > 0:
+                    x_coord -= 1
+            elif act == 7 or act == 3:  # RIGHT
+                if x_coord < 255:
+                    x_coord += 1
+
+            # Sync updated coordinates back to WRAM
+            raw_wram_buffer[b, 0x1362] = x_coord & 0xFF
+            raw_wram_buffer[b, 0x1361] = y_coord & 0xFF
 
             # 1. Populate observation feature vector
             out_features[b, 0] = float(cur_map) / 255.0
@@ -68,14 +90,12 @@ if HAS_NUMBA:
             # 2. Dynamic Hardware Action Masking
             # 8 Actions: [A, B, START, SELECT, UP, DOWN, LEFT, RIGHT]
             for a in range(8):
-                # If joy_ignore bit is set for button, mask it out
                 if (joy_ignore & (1 << a)) != 0:
                     out_action_masks[b, a] = 0
                 else:
                     out_action_masks[b, a] = 1
 
             # 3. Dense PBRS Potential & Exploration Reward
-            # Potential Phi(s) = 0.1 * (x + y) + 5.0 * badges
             phi = 0.05 * (float(x_coord) + float(y_coord)) + 2.0 * float(badges)
             out_rewards[b] = phi * 0.01
 
@@ -190,8 +210,9 @@ class NativeVectorEngine:
             # High-performance Numba LLVM JIT multi-threaded kernel (NOGIL)
             # 1. Parallel Screen Downsampling
             _parallel_downsample_screens(self.raw_screen_buffer, self.screen_obs, self.num_envs)
-            # 2. Parallel WRAM Decoding, Action Masking, and Reward Calculation
+            actions_arr = np.ascontiguousarray(actions, dtype=np.uint8)
             _parallel_decode_wram_batch(
+                actions_arr,
                 self.raw_wram_buffer,
                 self.wram_obs,
                 self.action_masks,

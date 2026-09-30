@@ -43,3 +43,14 @@ def test_pipeline_hardware_action_mask():
     mock_reader = lambda addr: 0x01 if addr == RAMMap.JOY_IGNORE else 0
     mask = pipeline.masker.compute_action_mask(mock_reader)
     assert not mask[Action.A]
+
+
+def test_pipeline_torch_autograd_training():
+    pipeline = ProductionAgentPipeline(group_size=4, use_torch_policy=True)
+    metrics = pipeline.run_training_cycle(num_iterations=3)
+
+    assert metrics["use_torch_policy"] is True
+    assert metrics["total_actions"] == 12
+    assert "mean_policy_loss" in metrics
+    assert isinstance(metrics["mean_policy_loss"], float)
+

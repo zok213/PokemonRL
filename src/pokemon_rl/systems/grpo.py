@@ -14,9 +14,10 @@ Theoretical Anchors:
 """
 
 from __future__ import annotations
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+import torch
 
 
 class AdaptiveTauGRPO:
@@ -122,3 +123,116 @@ class AdaptiveTauGRPO:
         total_loss = surr_loss + kl_coeff * kl_loss
 
         return total_loss, surr_loss, kl_loss
+
+
+class TorchAdaptiveTauGRPO:
+    """
+    Critic-Free Group Relative Policy Optimization (GRPO) with STAD
+    implemented natively in PyTorch with autograd gradient support.
+
+    Shao et al. (DeepSeekMath 2024) + STAD Entropy Variance Injection.
+    """
+
+    def __init__(
+        self,
+        group_size: int = 8,
+        clip_ratio: float = 0.2,
+        tau: float = 0.25,
+        beta_kl: float = 0.04,
+        eps_var: float = 1e-6,
+        max_grad_norm: float = 0.5,
+    ):
+        self.group_size = group_size
+        self.clip_ratio = clip_ratio
+        self.tau = tau
+        self.beta_kl = beta_kl
+        self.eps_var = eps_var
+        self.max_grad_norm = max_grad_norm
+
+    def compute_group_advantages(
+        self,
+        returns: torch.Tensor,
+        action_entropies: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, bool]:
+        if not isinstance(returns, torch.Tensor):
+            returns = torch.as_tensor(returns, dtype=torch.float32)
+        if action_entropies is not None and not isinstance(action_entropies, torch.Tensor):
+            action_entropies = torch.as_tensor(action_entropies, dtype=torch.float32, device=returns.device)
+
+        is_augmented = False
+        std_ret = torch.std(returns)
+
+        # STAD Variance Injection if returns are degenerate across siblings
+        if std_ret < self.eps_var and action_entropies is not None:
+            ent_std = torch.std(action_entropies)
+            if ent_std > 1e-8:
+                norm_ent = (action_entropies - torch.mean(action_entropies)) / (ent_std + 1e-8)
+                returns = returns + self.tau * norm_ent
+                is_augmented = True
+
+        mean_ret = torch.mean(returns)
+        std_ret = torch.std(returns) + 1e-8
+        advantages = (returns - mean_ret) / std_ret
+        return advantages, is_augmented
+
+    def compute_loss(
+        self,
+        log_probs_new: torch.Tensor,
+        log_probs_old: torch.Tensor,
+        log_probs_ref: torch.Tensor,
+        advantages: torch.Tensor,
+        beta_kl: Optional[float] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Computes PyTorch autograd loss for backpropagation.
+        """
+        kl_coeff = self.beta_kl if beta_kl is None else beta_kl
+
+        ratio = torch.exp(log_probs_new - log_probs_old)
+        clipped_ratio = torch.clamp(ratio, 1.0 - self.clip_ratio, 1.0 + self.clip_ratio)
+
+        surrogate1 = ratio * advantages
+        surrogate2 = clipped_ratio * advantages
+        surrogate = torch.minimum(surrogate1, surrogate2)
+
+        # Reverse KL estimator: exp(log_ref - log_new) - (log_ref - log_new) - 1 >= 0
+        diff = log_probs_ref - log_probs_new
+        kl = torch.exp(diff) - diff - 1.0
+
+        surr_loss = -torch.mean(surrogate)
+        kl_loss = torch.mean(kl)
+        total_loss = surr_loss + kl_coeff * kl_loss
+
+        return total_loss, surr_loss, kl_loss
+
+    def update_policy(
+        self,
+        policy: torch.nn.Module,
+        optimizer: torch.optim.Optimizer,
+        log_probs_new: torch.Tensor,
+        log_probs_old: torch.Tensor,
+        log_probs_ref: torch.Tensor,
+        advantages: torch.Tensor,
+    ) -> Dict[str, float]:
+        """
+        Executes a single policy update step with backpropagation and gradient clipping.
+        """
+        optimizer.zero_grad()
+        total_loss, surr_loss, kl_loss = self.compute_loss(
+            log_probs_new, log_probs_old, log_probs_ref, advantages
+        )
+        total_loss.backward()
+
+        grad_norm = 0.0
+        if self.max_grad_norm > 0:
+            grad_norm = float(
+                torch.nn.utils.clip_grad_norm_(policy.parameters(), self.max_grad_norm)
+            )
+        optimizer.step()
+
+        return {
+            "total_loss": total_loss.item(),
+            "surrogate_loss": surr_loss.item(),
+            "kl_loss": kl_loss.item(),
+            "grad_norm": grad_norm,
+        }

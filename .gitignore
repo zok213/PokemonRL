@@ -74,9 +74,12 @@ logs/
 scratch/
 tmp/
 
-# External cloned repositories (cataloged in external/README.md)
-external/*
-!external/README.md
+# Track external codebase and key evaluation assets
+!external/
+!external/**
+!external/PokemonRedExperiments/PokemonRed.gb
+!saves/*.state
+
 
 # Benchmark and metric output logs
 *_metrics.json
