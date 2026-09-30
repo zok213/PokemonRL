@@ -3,7 +3,7 @@
 **Project Benchmark:** *Pokémon Red* (Game Boy LR35902 / DMG-01 Hardware Disassembly: `pret/pokered`)  
 **Primary Baseline:** Pleines et al., *"Playing Pokémon Red via Reinforcement Learning"*, IEEE Conference on Games (CoG) 2025  
 **Core Repository:** [`d:\Gitrepo\PokemonRL`](file:///d:/Gitrepo/PokemonRL)  
-**Current Git Head:** Commit `8f36f44` on branch `main` (Verified Clean Working Tree)  
+**Current Git Head:** Commit `f1e1ad8` on branch `main` (Verified Clean Working Tree)  
 **Verification Status:** **54/54 Automated Unit Tests Passing (100% Green Across All Modules)**  
 **Benchmark Throughput:** **18,741 SPS** (Native Numba LLVM JIT, `nogil=True`, OpenMP Multi-Core)  
 **Date of Snapshot:** September 30, 2026  
