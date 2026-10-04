@@ -139,16 +139,20 @@ class LocalAffordancePolicy(nn.Module):
             feat[4] = 1.0
 
         # Overworld navigation & exploration
-        if any(w in desc_lower for w in ["advance", "north", "route", "explore", "continue", "exit", "door", "forward"]):
-            feat[6] = 2.0
+        is_retreat = any(w in desc_lower for w in ["return", "retreat", "back", "turn back", "reverse"])
+        if not is_retreat and any(w in desc_lower for w in ["advance", "north", "route", "explore", "continue", "exit", "door", "forward", "avenue", "city", "gate"]):
+            feat[6] = 2.5
+        if is_retreat:
+            feat[10] = 1.5
+
         if any(w in desc_lower for w in ["grass", "tall grass", "train", "wild"]):
-            feat[7] = 1.2
+            feat[7] = 1.0
         if any(w in desc_lower for w in ["heal", "mom", "center", "rest"]):
             feat[8] = 1.0
-        if any(w in desc_lower for w in ["dialogue", "talk", "press a", "confirm", "oak"]):
+        if any(w in desc_lower for w in ["dialogue", "talk", "press a", "confirm", "oak", "advance dialogue"]):
             feat[9] = 2.5
-        if any(w in desc_lower for w in ["close", "dismiss", "press b", "back"]):
-            feat[10] = 0.5
+        if any(w in desc_lower for w in ["close", "dismiss", "press b"]):
+            feat[10] = 1.5
 
         # Stable pseudo-hash for tie-breaking
         h = int(hashlib.sha256(option_id.encode()).hexdigest()[:8], 16)
@@ -176,9 +180,39 @@ class LocalAffordancePolicy(nn.Module):
         ])  # (K, 16)
         option_embs = self.option_encoder(option_feats)  # (K, embed_dim)
 
+        # Grounded semantic prior weights across the 16 affordance feature dimensions:
+        # [0: super_eff, 1: attack, 2: switch, 3: potion, 4: run, 5: tie_hash,
+        #  6: progression, 7: grass, 8: heal, 9: dialogue_advance, 10: close/dismiss, ...]
+        hp_ratio = float(state_tensor[0, 6].item()) if state_tensor.shape[-1] > 6 else 1.0
+        in_battle = float(state_tensor[0, 5].item()) > 0.5 if state_tensor.shape[-1] > 5 else False
+
+        prior_w = torch.zeros(16, dtype=torch.float32, device=state_tensor.device)
+        prior_w[0] = 2.0   # super-effective
+        prior_w[1] = 1.5   # attack
+        prior_w[6] = 2.4   # forward progression (advance north, exit lab, route)
+        prior_w[7] = 1.1   # tall grass
+        prior_w[9] = 4.0   # dialogue advance (Button A)
+        prior_w[10] = -2.5 # dialogue dismiss (Button B)
+        prior_w[5] = 0.05  # tie hash
+
+        # Context-dependent dynamic adjustments
+        if hp_ratio < 0.35:
+            prior_w[8] = 3.5  # heal when low HP
+            prior_w[4] = 2.0  # flee wild battle when low HP
+        else:
+            prior_w[8] = -0.5 # heal suppressed when healthy
+            prior_w[4] = -1.5 # flee suppressed when healthy
+
+        if in_battle:
+            prior_w[0] = 3.0
+            prior_w[1] = 2.5
+
+        prior_logits = torch.matmul(option_feats, prior_w).unsqueeze(0)  # (1, K)
+
         # Bilinear dot-product score between state embedding and option embeddings: (z_yes - z_no)
-        logits = torch.matmul(state_emb, option_embs.T) / (option_embs.shape[-1] ** 0.5)  # (1, K)
-        scaled_logits = logits / max(temperature, 1e-4)
+        neural_logits = torch.matmul(state_emb, option_embs.T) / (option_embs.shape[-1] ** 0.5)  # (1, K)
+        total_logits = 0.15 * neural_logits + prior_logits
+        scaled_logits = total_logits / max(temperature, 1e-4)
         probs = F.softmax(scaled_logits, dim=-1).squeeze(0)  # (K,)
 
         # Auxiliary predictions
@@ -189,7 +223,7 @@ class LocalAffordancePolicy(nn.Module):
             "faints_this_turn": float(aux[0].item()),
             "should_flee": float(aux[1].item())
         }
-        return prob_dict, aux_dict, logits
+        return prob_dict, aux_dict, total_logits
 
     def decide(
         self,
@@ -236,18 +270,26 @@ class JevosLocalClient:
     Runs against http://127.0.0.1:8017/v1/systemone with 0 API cost.
     """
 
-    def __init__(self, base_url: str = "http://127.0.0.1:8017", timeout: float = 2.0):
+    def __init__(self, base_url: str = "http://127.0.0.1:8017", timeout: float = 1.0):
         self.base_url = base_url.rstrip("/")
         self.endpoint = f"{self.base_url}/v1/systemone"
         self.timeout = timeout
+        self._last_check = 0.0
+        self._cached_available = False
 
     def is_available(self) -> bool:
-        """Check if local jevos daemon is actively running."""
+        """Check if local jevos daemon is actively running (cached for 5s)."""
+        now = time.time()
+        if now - self._last_check < 5.0:
+            return self._cached_available
+        self._last_check = now
         try:
             req = urllib.request.Request(self.endpoint, data=b"{}", headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=0.2) as resp:
+            with urllib.request.urlopen(req, timeout=0.1) as resp:
+                self._cached_available = True
                 return True
         except Exception:
+            self._cached_available = False
             return False
 
     def decide(self, branch: AffordanceBranch, temperature: float = 1.0) -> LocalDecision:

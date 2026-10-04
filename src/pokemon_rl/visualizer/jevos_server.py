@@ -170,6 +170,8 @@ class EmulationWorker(threading.Thread):
         self.running = True
         self.env: Optional[RealPyBoyEnvironment] = None
         self.harness = SMDPDecisionHarness()
+        self.last_pos: Optional[Tuple[int, int, int]] = None
+        self.stuck_count: int = 0
 
     def run(self):
         # 1. Initialize RealPyBoyEnvironment with authentic save state
@@ -262,6 +264,13 @@ class EmulationWorker(threading.Thread):
         in_battle = snapshot.get("in_battle", False)
         text_active = snapshot.get("text_box_id", 0) != 0
 
+        cur_pos = (map_id, x, y)
+        if cur_pos == self.last_pos and not in_battle and not text_active:
+            self.stuck_count += 1
+        else:
+            self.stuck_count = 0
+        self.last_pos = cur_pos
+
         # Extract party information from real WRAM
         mon = snapshot.get("active_mon", {})
         mon_hp = mon.get("hp", 22)
@@ -281,40 +290,189 @@ class EmulationWorker(threading.Thread):
         elif text_active:
             situation = "Dialogue: NPC conversation / message active"
             questions = {
-                "advance": "Should Red press A to advance the dialogue text?",
-                "close": "Should Red press B to close the menu dialog?"
+                "advance": "Should Red press A to advance dialogue text?",
+                "proceed": "Should Red press A to finish conversation and proceed?"
             }
-            button_map = {"advance": "a", "close": "b"}
+            button_map = {"advance": "a", "proceed": "a"}
         elif map_id == 40:  # Oak's Laboratory
             situation = f"Interior Navigation: Oak's Laboratory (X={x}, Y={y})"
-            if y < 10:
+            if y < 11:
                 questions = {
                     "exit_lab": "Should Red walk south towards the exit to enter Pallet Town?",
-                    "consult_oak": "Should Red advance north to consult Professor Oak?",
-                    "examine_desk": "Should Red inspect the Pokéball table?"
+                    "explore_left": "Should Red inspect the western bookshelf?",
+                    "explore_right": "Should Red inspect the eastern research bench?"
                 }
-                button_map = {"exit_lab": "down", "consult_oak": "up", "examine_desk": "a"}
+                button_map = {"exit_lab": "down", "explore_left": "left", "explore_right": "right"}
             else:
                 questions = {
                     "step_outside": "Should Red step through the door into Pallet Town?",
-                    "return_desk": "Should Red turn back towards Professor Oak's desk?"
+                    "turn_back": "Should Red turn back into the laboratory?"
                 }
-                button_map = {"step_outside": "down", "return_desk": "up"}
+                button_map = {"step_outside": "down", "turn_back": "up"}
         elif map_id == 0:  # Pallet Town
             situation = f"Overworld Navigation: Pallet Town (X={x}, Y={y})"
-            if x >= 11 and y >= 10:
+            if y >= 11:
+                if x >= 10:
+                    if y == 11 and x >= 11:
+                        questions = {
+                            "step_off_mat": "Should Red advance south into Pallet Town square?",
+                            "reenter_lab": "Should Red turn back into Professor Oak's laboratory?"
+                        }
+                        button_map = {"step_off_mat": "down", "reenter_lab": "up"}
+                    else:
+                        questions = {
+                            "walk_west": "Should Red advance west towards Pallet Town center?",
+                            "inspect_fence": "Should Red check the eastern perimeter fence?"
+                        }
+                        button_map = {"walk_west": "left", "inspect_fence": "right"}
+                else:
+                    questions = {
+                        "north": "Should Red advance north along Route 1 towards Viridian City?",
+                        "west": "Should Red check west towards the coastal grass?"
+                    }
+                    button_map = {"north": "up", "west": "left"}
+            elif y >= 4:
+                if x > 10:
+                    questions = {
+                        "route_path": "Should Red advance west towards the center road?",
+                        "explore_east": "Should Red check eastern houses?"
+                    }
+                    button_map = {"route_path": "left", "explore_east": "up"}
+                elif x < 8:
+                    questions = {
+                        "route_path": "Should Red advance east towards the center road?",
+                        "explore_west": "Should Red visit Mom's house?"
+                    }
+                    button_map = {"route_path": "right", "explore_west": "up"}
+                else:
+                    questions = {
+                        "north": "Should Red advance north along Route 1 towards Viridian City?",
+                        "explore_center": "Should Red look around Pallet Town?"
+                    }
+                    button_map = {"north": "up", "explore_center": "left"}
+            else:
+                # North exit to Route 1
+                if x < 10:
+                    questions = {
+                        "align_gate": "Should Red advance east towards Route 1 path?",
+                        "fence": "Should Red inspect western fence?"
+                    }
+                    button_map = {"align_gate": "right", "fence": "left"}
+                else:
+                    questions = {
+                        "north": "Should Red advance north into Route 1 towards Viridian City?",
+                        "check_grass": "Should Red check border grass?"
+                    }
+                    button_map = {"north": "up", "check_grass": "left"}
+        elif map_id == 12:  # Route 1
+            situation = f"Overworld Navigation: Route 1 (X={x}, Y={y})"
+            if y >= 28:
+                if x >= 10 and y == 28:
+                    questions = {
+                        "bypass_fence_west": "Should Red advance west to bypass the roadside fence?",
+                        "check_perimeter": "Should Red check eastern perimeter?",
+                        "retreat": "Should Red return south towards Pallet Town to rest?"
+                    }
+                    button_map = {"bypass_fence_west": "left", "check_perimeter": "right", "retreat": "down"}
+                elif x > 8 and y == 28:
+                    questions = {
+                        "bypass_fence_west": "Should Red advance west along the corridor towards Viridian City?",
+                        "retreat": "Should Red return south towards Pallet Town?"
+                    }
+                    button_map = {"bypass_fence_west": "left", "retreat": "down"}
+                else:
+                    questions = {
+                        "north": "Should Red advance north along the open path towards Viridian City?",
+                        "explore_grass": "Should Red step into roadside grass to train Pokémon?",
+                        "retreat": "Should Red return south towards Pallet Town to rest?"
+                    }
+                    button_map = {"north": "up", "explore_grass": "left", "retreat": "down"}
+            elif y == 24 and x < 12:
                 questions = {
-                    "town_square": "Should Red step south into Pallet Town square?",
-                    "lab_revisit": "Should Red re-enter Professor Oak's research laboratory?"
+                    "bypass_ledge_east": "Should Red advance east along the open corridor towards Viridian City?",
+                    "explore_west": "Should Red step into western grass?",
+                    "retreat": "Should Red return south?"
                 }
-                button_map = {"town_square": "down", "lab_revisit": "up"}
+                button_map = {"bypass_ledge_east": "right", "explore_west": "left", "retreat": "down"}
+            elif 20 < y <= 24 and x >= 12:
+                questions = {
+                    "north": "Should Red advance north towards Viridian City?",
+                    "west": "Should Red check western path?",
+                    "retreat": "Should Red return south?"
+                }
+                button_map = {"north": "up", "west": "left", "retreat": "down"}
+            elif y == 20 and x > 9:
+                questions = {
+                    "bypass_fence_west": "Should Red advance west towards the center clearing?",
+                    "check_east": "Should Red check eastern border?",
+                    "retreat": "Should Red return south?"
+                }
+                button_map = {"bypass_fence_west": "left", "check_east": "right", "retreat": "down"}
+            elif 18 < y <= 20 and x <= 9:
+                questions = {
+                    "north": "Should Red advance north along the clearing towards Viridian City?",
+                    "explore_west": "Should Red check western grass?",
+                    "retreat": "Should Red return south?"
+                }
+                button_map = {"north": "up", "explore_west": "left", "retreat": "down"}
+            elif y == 18 and x < 14:
+                questions = {
+                    "bypass_highway_east": "Should Red advance east towards the open highway to Viridian City?",
+                    "explore_west": "Should Red check western grass?",
+                    "retreat": "Should Red return south?"
+                }
+                button_map = {"bypass_highway_east": "right", "explore_west": "left", "retreat": "down"}
+            elif 2 < y <= 18 and x >= 14:
+                questions = {
+                    "north": "Should Red advance north along the highway towards Viridian City?",
+                    "explore_grass": "Should Red step into roadside grass to train Pokémon?",
+                    "retreat": "Should Red return south towards Pallet Town?"
+                }
+                button_map = {"north": "up", "explore_grass": "right", "retreat": "down"}
+            elif y <= 2:
+                if x > 10:
+                    questions = {
+                        "align_gate_west": "Should Red advance west to align with the Viridian City entrance gate?",
+                        "check_border": "Should Red check eastern trees?"
+                    }
+                    button_map = {"align_gate_west": "left", "check_border": "right"}
+                else:
+                    questions = {
+                        "enter_viridian": "Should Red advance north through the gate to enter Viridian City?",
+                        "look_around": "Should Red inspect border area?"
+                    }
+                    button_map = {"enter_viridian": "up", "look_around": "left"}
             else:
                 questions = {
-                    "north": "Should Red advance north along Route 1 towards Viridian City?",
-                    "grass": "Should Red explore the town perimeter for wild encounters?",
-                    "heal": "Should Red return to Mom's house in Pallet Town to heal?"
+                    "north": "Should Red advance north towards Viridian City?",
+                    "explore_grass": "Should Red train in grass?",
+                    "retreat": "Should Red return south?"
                 }
-                button_map = {"north": "up", "grass": "right", "heal": "down"}
+                button_map = {"north": "up", "explore_grass": "left", "retreat": "down"}
+        elif map_id == 1:  # Viridian City
+            situation = f"Overworld Navigation: Viridian City (X={x}, Y={y})"
+            if y >= 28:
+                if x >= 20 and y == 28:
+                    questions = {
+                        "bypass_building_west": "Should Red advance west onto the Viridian City main avenue?",
+                        "check_east": "Should Red check eastern perimeter?",
+                        "retreat": "Should Red turn back south to rest?"
+                    }
+                    button_map = {"bypass_building_west": "left", "check_east": "right", "retreat": "down"}
+                else:
+                    questions = {
+                        "advance_avenue": "Should Red advance north along the avenue into Viridian City center?",
+                        "explore_west": "Should Red check Pokémon Center on the west side?",
+                        "retreat": "Should Red turn back south to rest?"
+                    }
+                    button_map = {"advance_avenue": "up", "explore_west": "left", "retreat": "down"}
+            else:
+                questions = {
+                    "advance_city": "Should Red advance north into Viridian City square towards the Poké Mart?",
+                    "explore_center": "Should Red explore Viridian City center?",
+                    "visit_center": "Should Red visit the Pokémon Center to heal?"
+                }
+                button_map = {"advance_city": "up", "explore_center": "left", "visit_center": "right"}
         else:
             situation = f"Overworld Navigation: {map_name} (X={x}, Y={y})"
             questions = {
@@ -363,6 +521,10 @@ class EmulationWorker(threading.Thread):
         if self.env is not None:
             btn = button_map.get(decision.selected_option, "a")
             self.env.send_button(btn, hold_frames=8, release_frames=14, render=True)
+            if in_battle:
+                self.env.tick_frames(20, render=True)
+            elif text_active:
+                self.env.tick_frames(10, render=True)
             self.shared.update_frame(self.env.pyboy.screen.ndarray)
 
         model_name = "PokemonRL-Daemon" if "Daemon" in decision.model_source else "PokemonRL-Local"
