@@ -289,13 +289,22 @@ class EmulationWorker(threading.Thread):
 
         # Construct candidate questions based on actual Game Boy context
         if in_battle:
-            situation = f"Combat: Wild Pokémon encounter ({mon_hp}/{mon_max} HP)"
-            questions = {
-                "scratch": "Should Charmander attack with Scratch (Power 40)?",
-                "attack": "Should Red order Charmander to attack with full offensive power?",
-                "run": "Should Red attempt to flee from this wild encounter?"
-            }
-            button_map = {"scratch": "a", "attack": "a", "run": "b"}
+            battle_type = snapshot.get("battle_type", 1)
+            if battle_type == 2:
+                situation = f"Trainer Combat: Trainer battle vs Bug Catcher ({mon_hp}/{mon_max} HP)"
+                questions = {
+                    "scratch": "Should Charmander attack with primary offensive move?",
+                    "attack": "Should Red command an offensive strike to defeat opponent?"
+                }
+                button_map = {"scratch": "a", "attack": "a"}
+            else:
+                situation = f"Combat: Wild Pokémon encounter ({mon_hp}/{mon_max} HP)"
+                questions = {
+                    "scratch": "Should Charmander attack with Scratch (Power 40)?",
+                    "attack": "Should Red order Charmander to attack with full offensive power?",
+                    "run": "Should Red attempt to flee from this wild encounter?"
+                }
+                button_map = {"scratch": "a", "attack": "a", "run": "b"}
         elif text_active:
             situation = "Dialogue: NPC conversation / message active"
             questions = {
@@ -569,13 +578,47 @@ class EmulationWorker(threading.Thread):
                 button_map = {"advance_forest_gate": step_dir, "look_around": "left"}
         elif map_id == 51:  # Viridian Forest
             situation = f"Exploration: Viridian Forest (X={x}, Y={y})"
-            # At south entrance border (y >= 47), immediately step up into the forest interior
-            if y >= 47:
-                step_dir = "up"
+            # Topological sector waypoints guiding Red through the entire Viridian Forest labyrinth towards Pewter City
+            if y >= 44:
+                target = (17, 43)
+            elif x <= 17 and y == 43:
+                target = (18, 43)
+            elif x == 18 and y > 41:
+                target = (18, 41)
+            elif y >= 41 and x < 25:
+                target = (25, 41)
+            elif x >= 24 and y > 9:
+                target = (25, 9)
+            elif y <= 9 and x > 16:
+                target = (16, 9)
+            elif x == 16 and y < 16:
+                target = (16, 16)
+            elif y == 16 and x > 13:
+                target = (13, 16)
+            elif x == 13 and y > 3:
+                target = (13, 3)
+            elif y == 3 and x > 6:
+                target = (6, 3)
+            elif x == 6 and y < 22:
+                target = (6, 22)
+            elif y >= 20 and x > 1:
+                target = (1, 22)
+            elif y <= 0:
+                target = (1, -1)
             else:
-                step_dir = self.router.plan_path(coll, (1 - x, 0 - y), blocked_directions=self.blocked_dirs) or "up"
+                target = (1, 0)
+
+            step_dir = self.router.plan_path(coll, (target[0] - x, target[1] - y), blocked_directions=self.blocked_dirs)
+            if not step_dir:
+                dx = target[0] - x
+                dy = target[1] - y
+                if abs(dx) >= abs(dy):
+                    step_dir = "right" if dx > 0 else "left"
+                else:
+                    step_dir = "down" if dy > 0 else "up"
+
             questions = {
-                "advance_forest": "Should Red navigate through Viridian Forest towards Pewter City?",
+                "advance_forest": "Should Red navigate along the open trail towards Pewter City?",
                 "train_pokemon": "Should Red search for wild Pikachu / Caterpie in the tall grass?",
                 "retreat": "Should Red turn back south towards Route 2?"
             }
@@ -584,6 +627,22 @@ class EmulationWorker(threading.Thread):
                 "train_pokemon": "left" if step_dir != "left" else "right",
                 "retreat": "down"
             }
+        elif map_id == 47:  # Viridian Forest North Gate
+            situation = f"Gatehouse: Viridian Forest North Gate (X={x}, Y={y})"
+            step_dir = "up"
+            questions = {
+                "advance_pewter_gate": "Should Red walk north through the gatehouse towards Pewter City?",
+                "look_around": "Should Red inspect gate interior?"
+            }
+            button_map = {"advance_pewter_gate": step_dir, "look_around": "left"}
+        elif map_id == 2:  # Pewter City
+            situation = f"Pewter City: City Entrance (X={x}, Y={y})"
+            questions = {
+                "advance_gym": "Should Red advance north into Pewter City towards the Pokémon Gym?",
+                "pokecenter": "Should Red visit the Pewter Pokémon Center to heal?",
+                "explore": "Should Red explore the city streets?"
+            }
+            button_map = {"advance_gym": "up", "pokecenter": "right", "explore": "left"}
         elif map_id == 42:  # Viridian Poké Mart
             situation = f"Interior: Viridian Poké Mart (X={x}, Y={y})"
             if text_active:
@@ -656,8 +715,9 @@ class EmulationWorker(threading.Thread):
                     self.env.send_button("down", hold_frames=6, release_frames=8, render=True)
                     self.env.send_button("right", hold_frames=6, release_frames=8, render=True)
                     self.env.send_button("a", hold_frames=8, release_frames=14, render=True)
-                    self.env.tick_frames(25, render=True)
+                    self.env.tick_frames(30, render=True)
                     self.env.send_button("b", hold_frames=6, release_frames=8, render=True)
+                    self.env.tick_frames(15, render=True)
                 else:
                     # Attack: select FIGHT (A) and execute move (A), advancing combat turns
                     self.env.send_button("a", hold_frames=8, release_frames=14, render=True)

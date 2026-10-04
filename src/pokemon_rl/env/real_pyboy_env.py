@@ -142,7 +142,8 @@ class RealPyBoyEnvironment:
         x_coord = self.pyboy.memory[RAMMap.X_POS]
         y_coord = self.pyboy.memory[RAMMap.Y_POS]
         badges = self.pyboy.memory[RAMMap.OBTAINED_BADGES]
-        in_battle = self.pyboy.memory[RAMMap.IS_IN_BATTLE] != 0
+        in_battle_raw = self.pyboy.memory[RAMMap.IS_IN_BATTLE]
+        in_battle = in_battle_raw != 0
         text_box = self.pyboy.memory[RAMMap.TEXT_BOX_ID]
         joy_ignore = self.pyboy.memory[RAMMap.JOY_IGNORE]
         party_count = self.pyboy.memory[RAMMap.PARTY_COUNT]
@@ -160,6 +161,7 @@ class RealPyBoyEnvironment:
             "y": y_coord,
             "badges": badges,
             "in_battle": in_battle,
+            "battle_type": in_battle_raw,
             "text_box_id": text_box,
             "joy_ignore": joy_ignore,
             "party_count": party_count,
