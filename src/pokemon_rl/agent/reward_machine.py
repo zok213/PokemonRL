@@ -396,6 +396,8 @@ class RewardMachine:
         Returns:
             (new_rm_state, reward_emitted)
         """
+        if not isinstance(reader, WRAMReader):
+            reader = WRAMReader(reader)
         props = self.extract_propositions(reader)
         u_prev = self.current_state
         u_next = self.delta(u_prev, props)
