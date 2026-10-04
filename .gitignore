@@ -30,6 +30,7 @@ xla_cache/
 *.rom
 pokemon_red.gb
 PokemonRed.gb
+roms/
 
 # Go-Explore save states (large)
 *.save
