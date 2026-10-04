@@ -157,31 +157,47 @@ class EmulationWorker(threading.Thread):
     Background worker running real Game Boy emulation and invoking the SMDP decision policy.
     """
 
-    def __init__(self, shared_state: SharedVisualizerState, rom_path: str = "roms/pokemon_red.gb"):
+    def __init__(
+        self,
+        shared_state: SharedVisualizerState,
+        rom_path: str = "roms/pokemon_red.gb",
+        state_path: Optional[str] = None
+    ):
         super().__init__(daemon=True)
         self.shared = shared_state
         self.rom_path = Path(rom_path)
+        self.state_path = state_path
         self.running = True
         self.env: Optional[RealPyBoyEnvironment] = None
         self.harness = SMDPDecisionHarness()
 
     def run(self):
-        # 1. Initialize RealPyBoyEnvironment in headless mode
+        # 1. Initialize RealPyBoyEnvironment with authentic save state
         resolved_rom = self.rom_path if self.rom_path.exists() else Path("roms/pokemon_red.gb")
         if resolved_rom.exists():
             try:
-                self.env = RealPyBoyEnvironment(rom_path=str(resolved_rom), window_type="null")
-                # Skip Game Boy intro / copyright animation
-                for _ in range(180):
-                    self.env.tick_frames(1)
-                for _ in range(4):
-                    self.env.send_button("start", hold_frames=4, release_frames=12)
-                    self.env.send_button("a", hold_frames=4, release_frames=12)
+                self.env = RealPyBoyEnvironment(
+                    rom_path=str(resolved_rom),
+                    state_path=self.state_path,
+                    window_type="null"
+                )
+                # Seed initial frame and telemetry from real Game Boy hardware
+                initial_snap = self.env.get_wram_snapshot()
+                initial_frame = self.env.pyboy.screen.ndarray
+                self.shared.update_frame(initial_frame)
+
+                m_id = initial_snap.get("map_id", 0)
+                m_name = MAP_NAMES.get(m_id, f"Map_{m_id}")
+                with self.shared.lock:
+                    self.shared.map_name = m_name
+                    self.shared.coords = [initial_snap.get("x", 0), initial_snap.get("y", 0)]
+                    self.shared.badges = initial_snap.get("badges", 0)
+                print(f"[+] PokemonRL Emulation Worker initialized at {m_name} ({self.shared.coords}).")
             except Exception as e:
                 print(f"[!] Warning: PyBoy initialization fallback: {e}")
                 self.env = None
 
-        print("[+] Jevos Emulation Worker active. Running SMDP affordance loop...")
+        print("[+] PokemonRL Emulation Worker active. Running SMDP affordance loop on real Game Boy hardware...")
 
         # 2. Main Simulation & Decision Loop
         step_idx = 0
@@ -191,7 +207,7 @@ class EmulationWorker(threading.Thread):
                 continue
 
             step_idx += 1
-            time.sleep(0.035)  # Pace emulation to ~30 FPS for smooth visualization
+            time.sleep(0.04)  # Pace emulation to ~25-30 FPS for smooth real-time visualization
 
             if self.env is not None:
                 # Real Game Boy Execution
@@ -212,12 +228,14 @@ class EmulationWorker(threading.Thread):
                     self.shared.step_count = step_idx
                     self.shared.best = max(self.shared.best, step_idx // 10)
 
-                # Execute decision at affordance forks (every 10 steps or in battle/dialogue)
-                if step_idx % 10 == 0 or snapshot["in_battle"] or snapshot["text_box_id"] != 0:
+                # Execute decision at affordance forks (every 10 steps, or immediately in battle / dialogue)
+                in_battle = snapshot["in_battle"]
+                in_dialogue = snapshot["text_box_id"] != 0
+                if step_idx % 10 == 0 or in_battle or in_dialogue:
                     self._evaluate_affordance_fork(snapshot)
                 else:
-                    # Tick forward
-                    self.env.tick_frames(2)
+                    # Tick forward smoothly
+                    self.env.tick_frames(4, render=True)
 
             else:
                 # Synthetic fallback frame generator for test environments without ROM
@@ -244,9 +262,16 @@ class EmulationWorker(threading.Thread):
         in_battle = snapshot.get("in_battle", False)
         text_active = snapshot.get("text_box_id", 0) != 0
 
-        # Construct candidate questions based on context
+        # Extract party information from real WRAM
+        mon = snapshot.get("active_mon", {})
+        mon_hp = mon.get("hp", 22)
+        mon_max = max(1, mon.get("max_hp", 22))
+        mon_lvl = mon.get("level", 6)
+        party_desc = [{"species": "Charmander", "level": mon_lvl, "hp": f"{mon_hp}/{mon_max}"}]
+
+        # Construct candidate questions based on actual Game Boy context
         if in_battle:
-            situation = "Combat: Wild Pokémon encounter on Route 1"
+            situation = f"Combat: Wild Pokémon encounter ({mon_hp}/{mon_max} HP)"
             questions = {
                 "scratch": "Should Charmander attack with Scratch (Power 40)?",
                 "growl": "Should Charmander use Growl to lower enemy Attack?",
@@ -260,12 +285,42 @@ class EmulationWorker(threading.Thread):
                 "close": "Should Red press B to close the menu dialog?"
             }
             button_map = {"advance": "a", "close": "b"}
+        elif map_id == 40:  # Oak's Laboratory
+            situation = f"Interior Navigation: Oak's Laboratory (X={x}, Y={y})"
+            if y < 10:
+                questions = {
+                    "exit_lab": "Should Red walk south towards the exit to enter Pallet Town?",
+                    "consult_oak": "Should Red advance north to consult Professor Oak?",
+                    "examine_desk": "Should Red inspect the Pokéball table?"
+                }
+                button_map = {"exit_lab": "down", "consult_oak": "up", "examine_desk": "a"}
+            else:
+                questions = {
+                    "step_outside": "Should Red step through the door into Pallet Town?",
+                    "return_desk": "Should Red turn back towards Professor Oak's desk?"
+                }
+                button_map = {"step_outside": "down", "return_desk": "up"}
+        elif map_id == 0:  # Pallet Town
+            situation = f"Overworld Navigation: Pallet Town (X={x}, Y={y})"
+            if x >= 11 and y >= 10:
+                questions = {
+                    "town_square": "Should Red step south into Pallet Town square?",
+                    "lab_revisit": "Should Red re-enter Professor Oak's research laboratory?"
+                }
+                button_map = {"town_square": "down", "lab_revisit": "up"}
+            else:
+                questions = {
+                    "north": "Should Red advance north along Route 1 towards Viridian City?",
+                    "grass": "Should Red explore the town perimeter for wild encounters?",
+                    "heal": "Should Red return to Mom's house in Pallet Town to heal?"
+                }
+                button_map = {"north": "up", "grass": "right", "heal": "down"}
         else:
             situation = f"Overworld Navigation: {map_name} (X={x}, Y={y})"
             questions = {
                 "north": f"Should Red advance north along {map_name} towards destination?",
                 "grass": "Should Red step into the tall grass to train Pokémon?",
-                "heal": "Should Red return south to Mom's house in Pallet Town to heal?"
+                "heal": "Should Red return south to Pallet Town to rest?"
             }
             button_map = {"north": "up", "grass": "right", "heal": "down"}
 
@@ -273,7 +328,7 @@ class EmulationWorker(threading.Thread):
             "state": {
                 "location": map_name,
                 "coordinates": [x, y],
-                "party": [{"species": "Charmander", "level": 5, "hp": "20/20"}],
+                "party": party_desc,
                 "situation": situation
             },
             "questions": questions
@@ -307,9 +362,10 @@ class EmulationWorker(threading.Thread):
         # Send action to emulator if available
         if self.env is not None:
             btn = button_map.get(decision.selected_option, "a")
-            self.env.send_button(btn, hold_frames=8, release_frames=16)
+            self.env.send_button(btn, hold_frames=8, release_frames=14, render=True)
+            self.shared.update_frame(self.env.pyboy.screen.ndarray)
 
-        model_name = "jevos-daemon" if "jevos" in decision.model_source else "jevos-local"
+        model_name = "PokemonRL-Daemon" if "Daemon" in decision.model_source else "PokemonRL-Local"
         self.shared.record_decision(
             reads=payload,
             answers=answers_list,
@@ -404,22 +460,31 @@ def find_free_port(start_port: int = 8090) -> int:
     return start_port
 
 
-class JevosVisualizerServer:
+class PokemonRLVisualizerServer:
     """Orchestrates HTTP server and background Game Boy emulation worker."""
 
-    def __init__(self, port: Optional[int] = None, rom_path: str = "roms/pokemon_red.gb"):
+    def __init__(
+        self,
+        port: Optional[int] = None,
+        rom_path: str = "roms/pokemon_red.gb",
+        state_path: Optional[str] = None
+    ):
         self.port = port if port is not None else find_free_port(8090)
         self.rom_path = rom_path
+        self.state_path = state_path
         self.shared_state = SharedVisualizerState()
-        self.worker = EmulationWorker(self.shared_state, rom_path=self.rom_path)
+        self.worker = EmulationWorker(self.shared_state, rom_path=self.rom_path, state_path=self.state_path)
 
-        # Load HTML template
-        html_file = Path(__file__).parent / "jevos_dashboard.html"
+        # Load HTML template (prefer pokemonrl_dashboard.html, fallback to jevos_dashboard.html)
+        html_file = Path(__file__).parent / "pokemonrl_dashboard.html"
+        if not html_file.exists():
+            html_file = Path(__file__).parent / "jevos_dashboard.html"
+
         if html_file.exists():
             with open(html_file, "r", encoding="utf-8") as f:
                 self.html_content = f.read()
         else:
-            self.html_content = "<h1>Jevos Dashboard HTML not found</h1>"
+            self.html_content = "<h1>PokemonRL Dashboard HTML not found</h1>"
 
         JevosVisualizerHandler.shared_state = self.shared_state
         JevosVisualizerHandler.html_content = self.html_content
@@ -429,16 +494,16 @@ class JevosVisualizerServer:
     def start(self, blocking: bool = True):
         self.worker.start()
         print(f"\n" + "=" * 70)
-        print(f"  JEVOS POKÉMON RED VISUALIZER SERVER ACTIVE")
+        print(f"  POKEMONRL LOCAL DECISION VISUALIZER ACTIVE")
         print(f"  Access live dashboard at: http://127.0.0.1:{self.port}")
-        print(f"  Architecture: Local Affordance RL (jevos · on CPU · 0 API cost)")
+        print(f"  Architecture: Neuro-Symbolic SMDP RL (PokemonRL · on CPU · 0 API cost)")
         print(f"=" * 70 + "\n", flush=True)
 
         if blocking:
             try:
                 self.server.serve_forever()
             except KeyboardInterrupt:
-                print("\n[*] Shutting down visualizer server...")
+                print("\n[*] Shutting down PokemonRL visualizer server...")
                 self.stop()
 
     def stop(self):
@@ -447,9 +512,14 @@ class JevosVisualizerServer:
         self.server.server_close()
 
 
+# Backward-compatibility alias
+JevosVisualizerServer = PokemonRLVisualizerServer
+
+
 if __name__ == "__main__":
-    env_port = os.environ.get("JEVOS_PORT")
+    env_port = os.environ.get("POKEMONRL_PORT") or os.environ.get("JEVOS_PORT")
+    env_state = os.environ.get("POKEMONRL_STATE")
     port = int(env_port) if env_port else find_free_port(8090)
-    server = JevosVisualizerServer(port=port)
+    server = PokemonRLVisualizerServer(port=port, state_path=env_state)
     server.start(blocking=True)
 

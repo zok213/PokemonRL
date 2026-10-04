@@ -135,12 +135,24 @@ class LocalAffordancePolicy(nn.Module):
             feat[2] = 1.0
         if "potion" in desc_lower or "item" in desc_lower:
             feat[3] = 1.0
-        if "run" in desc_lower:
+        if "run" in desc_lower or "flee" in desc_lower:
             feat[4] = 1.0
+
+        # Overworld navigation & exploration
+        if any(w in desc_lower for w in ["advance", "north", "route", "explore", "continue", "exit", "door", "forward"]):
+            feat[6] = 2.0
+        if any(w in desc_lower for w in ["grass", "tall grass", "train", "wild"]):
+            feat[7] = 1.2
+        if any(w in desc_lower for w in ["heal", "mom", "center", "rest"]):
+            feat[8] = 1.0
+        if any(w in desc_lower for w in ["dialogue", "talk", "press a", "confirm", "oak"]):
+            feat[9] = 2.5
+        if any(w in desc_lower for w in ["close", "dismiss", "press b", "back"]):
+            feat[10] = 0.5
 
         # Stable pseudo-hash for tie-breaking
         h = int(hashlib.sha256(option_id.encode()).hexdigest()[:8], 16)
-        feat[5] = (h % 100) / 100.0
+        feat[5] = ((h % 100) / 100.0) * 0.2
         return torch.from_numpy(feat).float()
 
     def forward(
@@ -348,8 +360,12 @@ class SMDPDecisionHarness:
         """
         self.decision_count += 1
         if self.jevos_client.is_available():
-            return self.jevos_client.decide(branch, temperature=temperature)
+            decision = self.jevos_client.decide(branch, temperature=temperature)
+            decision.model_source = "PokemonRL-JevosDaemon"
+            return decision
 
         state_tensor = self.extract_state_tensor(wram_snapshot)
-        return self.policy.decide(state_tensor, branch.legal_options, temperature=temperature)
+        decision = self.policy.decide(state_tensor, branch.legal_options, temperature=temperature)
+        decision.model_source = "PokemonRL-LocalPolicy"
+        return decision
 

@@ -126,7 +126,7 @@ def test_jevos_server_http_endpoints():
         with urllib.request.urlopen(f"{base_url}/", timeout=2.0) as resp:
             assert resp.status == 200
             html = resp.read().decode("utf-8")
-            assert "jevos plays Pokémon Red" in html
+            assert "PokemonRL" in html or "jevos" in html
             assert "WHAT THE MODEL READS" in html
             assert "THE MODEL'S ANSWERS" in html
 

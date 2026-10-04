@@ -56,6 +56,7 @@ class RealPyBoyEnvironment:
     def __init__(
         self,
         rom_path: str | Path = "roms/pokemon_red.gb",
+        state_path: Optional[str | Path] = None,
         window_type: str = "null",
         emulation_speed: int = 0,  # 0 = unthrottled maximum speed
         frame_hold: int = 8,
@@ -89,6 +90,36 @@ class RealPyBoyEnvironment:
         self.pyboy = PyBoy(str(self.rom_path), window=self.window_type)
         if hasattr(self.pyboy, "set_emulation_speed"):
             self.pyboy.set_emulation_speed(emulation_speed)
+
+        # Candidate search for state file if provided or auto-detect default
+        state_candidates = []
+        if state_path:
+            state_candidates.append(Path(state_path))
+        state_candidates.extend([
+            Path("external/PokemonRedExperiments/has_pokedex_nballs.state"),
+            Path("d:/Gitrepo/PokemonRL/external/PokemonRedExperiments/has_pokedex_nballs.state"),
+            Path("external/pokemonred_puffer/pyboy_states/has_pokedex_nballs.state"),
+            Path("external/PokemonRedExperiments/init.state"),
+            Path("d:/Gitrepo/PokemonRL/external/PokemonRedExperiments/init.state"),
+            Path(__file__).resolve().parent.parent.parent.parent / "external" / "PokemonRedExperiments" / "has_pokedex_nballs.state",
+        ])
+
+        self.state_file: Optional[Path] = None
+        for sc in state_candidates:
+            if sc.exists() and sc.is_file():
+                self.state_file = sc
+                break
+
+        if self.state_file is not None:
+            try:
+                self.load_state(self.state_file)
+                # Advance a few frames with render=True to fully render state graphics to LCD
+                self.pyboy.tick(4, render=True)
+            except Exception as e:
+                print(f"[!] Warning loading state {self.state_file}: {e}")
+        else:
+            # Cold boot fallback: tick initial frames to warm CPU
+            self.pyboy.tick(8, render=True)
 
     @property
     def memory(self):
@@ -155,11 +186,17 @@ class RealPyBoyEnvironment:
         """Extract live 144x160 RGBA screen buffer from Game Boy LCD."""
         return self.pyboy.screen.ndarray
 
-    def tick_frames(self, num_frames: int = 1) -> bool:
+    def tick_frames(self, num_frames: int = 1, render: bool = True) -> bool:
         """Advance emulation by N frames."""
-        return self.pyboy.tick(num_frames, render=False)
+        return self.pyboy.tick(num_frames, render=render)
 
-    def send_button(self, button_name: str | Action, hold_frames: Optional[int] = None, release_frames: Optional[int] = None) -> bool:
+    def send_button(
+        self,
+        button_name: str | Action,
+        hold_frames: Optional[int] = None,
+        release_frames: Optional[int] = None,
+        render: bool = True,
+    ) -> bool:
         """
         Send a real hardware button press and release pulse to the Game Boy CPU.
         """
@@ -175,13 +212,13 @@ class RealPyBoyEnvironment:
 
         # 1. Send button press event
         self.pyboy.send_input(press_ev)
-        alive = self.pyboy.tick(hold, render=False)
+        alive = self.pyboy.tick(hold, render=render)
         if not alive:
             return False
 
         # 2. Send button release event
         self.pyboy.send_input(release_ev)
-        alive = self.pyboy.tick(release, render=False)
+        alive = self.pyboy.tick(release, render=render)
 
         self.step_count += 1
         return alive

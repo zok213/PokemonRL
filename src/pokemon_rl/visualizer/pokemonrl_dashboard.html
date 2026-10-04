@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PokemonRL plays Pokémon Red — High-Speed Neuro-Symbolic RL</title>
+  <style>
+    :root {
+      --bg-page: #000000;
+      --card-bg: #ffffff;
+      --text-main: #1f2328;
+      --text-muted: #656d76;
+      --border-light: #d0d7de;
+      --border-subtle: #eaeef2;
+      --bg-subtle: #f6f8fa;
+      --bar-bg: #e5e7eb;
+      --bar-fill: #9ca3af;
+      --bar-fill-active: #22c55e;
+      --btn-dark: #1f2328;
+      --btn-dark-hover: #32383f;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-page);
+      color: #ffffff;
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+    }
+
+    /* GitHub Top Header Mock */
+    .gh-nav {
+      width: 100%;
+      max-width: 1100px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #30363d;
+      margin-bottom: 24px;
+      font-size: 13px;
+      color: #e6edf3;
+    }
+
+    .gh-nav-left {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .gh-nav-link {
+      color: #e6edf3;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+
+    .gh-nav-link:hover {
+      color: #58a6ff;
+    }
+
+    .gh-nav-right {
+      display: flex;
+      gap: 12px;
+      color: #8b949e;
+    }
+
+    /* Repo Title */
+    .repo-header {
+      width: 100%;
+      max-width: 1100px;
+      margin-bottom: 20px;
+    }
+
+    .repo-title {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+
+    .repo-subtitle {
+      font-size: 16px;
+      color: #e6edf3;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    /* White Interactive Container */
+    .demo-card {
+      background: var(--card-bg);
+      color: var(--text-main);
+      width: 100%;
+      max-width: 1100px;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Demo Header */
+    .demo-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 12px;
+    }
+
+    .demo-title-group {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .demo-main-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .demo-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .demo-model-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-light);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* Demo Body Grid */
+    .demo-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .demo-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Left Column: Canvas & JSON Reads */
+    .left-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .canvas-container {
+      position: relative;
+      background: #0f380f;
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      aspect-ratio: 160 / 144;
+      max-height: 380px;
+    }
+
+    #gameCanvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .canvas-hud-overlay {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      display: flex;
+      gap: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #1f2328;
+      background: rgba(255, 255, 255, 0.88);
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid #d0d7de;
+      font-weight: 600;
+      pointer-events: none;
+    }
+
+    .reads-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .json-box {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--text-main);
+      overflow-x: auto;
+      max-height: 220px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .caption-text {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    /* Right Column: Controls, Stats, Answers, Log */
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .controls-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      border: none;
+      transition: background-color 0.15s ease;
+      font-family: var(--font-sans);
+    }
+
+    .btn-dark {
+      background: var(--btn-dark);
+      color: #ffffff;
+    }
+
+    .btn-dark:hover {
+      background: var(--btn-dark-hover);
+    }
+
+    .btn-outline {
+      background: #ffffff;
+      color: var(--text-main);
+      border: 1px solid var(--border-light);
+    }
+
+    .btn-outline:hover {
+      background: var(--bg-subtle);
+    }
+
+    .checkbox-label {
+      font-size: 12px;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      margin-left: 4px;
+    }
+
+    /* 4 Stat Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .stat-card {
+      background: #ffffff;
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      padding: 10px 6px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 2px;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-main);
+      line-height: 1.1;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Model Answers (P(YES)) */
+    .answers-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .answer-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .answer-question {
+      font-size: 12px;
+      color: var(--text-main);
+      line-height: 1.3;
+    }
+
+    .answer-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .bar-track {
+      flex: 1;
+      height: 16px;
+      background: var(--bar-bg);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: var(--bar-fill);
+      transition: width 0.25s ease-out, background-color 0.2s ease;
+      border-radius: 3px;
+    }
+
+    .bar-fill.active {
+      background: #4b5563;
+    }
+
+    .bar-fill.chosen {
+      background: #1f2328;
+    }
+
+    .bar-pct {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
+      width: 38px;
+      text-align: right;
+      font-family: var(--font-sans);
+    }
+
+    /* Log Box */
+    .log-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .log-box {
+      background: #ffffff;
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      height: 130px;
+      overflow-y: auto;
+      padding: 8px 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column-reverse;
+    }
+
+    .log-entry {
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .log-entry-action {
+      font-weight: 600;
+      color: #0969da;
+    }
+
+    .log-entry-pct {
+      font-weight: 700;
+      color: #1f2328;
+    }
+
+    .log-entry-desc {
+      color: #57606a;
+    }
+
+    /* Status indicator */
+    .live-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 6px #22c55e;
+      margin-right: 4px;
+    }
+
+    .live-dot.paused {
+      background: #eab308;
+      box-shadow: 0 0 6px #eab308;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Mock GitHub Header -->
+  <div class="gh-nav">
+    <div class="gh-nav-left">
+      <a href="#" class="gh-nav-link">
+        <svg height="16" viewBox="0 0 16 16" width="16" fill="currentColor"><path d="M0 1.75A.75.75 0 0 1 .75 1h4.253c1.227 0 2.317.59 3 1.501A3.743 3.743 0 0 1 11.006 1h4.244a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.244a2.25 2.25 0 0 0-1.506.578 7.42 7.42 0 0 1-.506.422.75.75 0 0 1-.748 0 7.42 7.42 0 0 1-.506-.422A2.25 2.25 0 0 0 4.997 13H.75a.75.75 0 0 1-.75-.75Zm7.25 9.99V3.5a2.25 2.25 0 0 0-2.25-2.25H1.5v9h3.497c.563 0 1.099.213 1.509.596.287.269.54.56.744.744Zm1.5 0c.204-.185.457-.475.744-.744.41-.383.946-.596 1.509-.596H14.5v-9h-3.494a2.25 2.25 0 0 0-2.256 2.25Z"></path></svg>
+        README
+      </a>
+      <a href="#" class="gh-nav-link">
+        <svg height="16" viewBox="0 0 16 16" width="16" fill="currentColor"><path d="M8.75.75a.75.75 0 0 0-1.5 0V2h-.984c-.983 0-1.9.444-2.502 1.21L2.01 5.485A2.75 2.75 0 0 0 1.5 7.14v3.11c0 .633.218 1.246.619 1.737l1.754 2.144A2.75 2.75 0 0 0 5.998 15h4.004a2.75 2.75 0 0 0 2.125-.999l1.754-2.144a2.75 2.75 0 0 0 .619-1.737V7.14c0-.583-.186-1.152-.51-1.655L12.236 3.21A3.25 3.25 0 0 0 9.734 2H8.75Z"></path></svg>
+        MIT license
+      </a>
+    </div>
+    <div class="gh-nav-right">
+      <span><span id="liveStatusDot" class="live-dot"></span> Live Local Session</span>
+    </div>
+  </div>
+
+  <!-- Repo Title matching PokemonRL -->
+  <div class="repo-header">
+    <h1 class="repo-title">PokemonRL</h1>
+    <p class="repo-subtitle">Autonomous Neuro-Symbolic RL on laptop CPU in 25–110 ms. Semi-Markov affordance decisions over cycle-accurate Game Boy emulation.</p>
+  </div>
+
+  <!-- The Exact White Demo Card -->
+  <div class="demo-card">
+    
+    <!-- Top Card Header -->
+    <div class="demo-header">
+      <div class="demo-title-group">
+        <span class="demo-main-title">PokemonRL plays Pokémon Red</span>
+        <span class="demo-subtitle">discrete affordances per decision · cycle-accurate LR35902 Game Boy · 0 API cost</span>
+      </div>
+      <div class="demo-model-tag" id="modelTagLabel">PokemonRL-SMDP · local-affordance</div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="demo-grid">
+
+      <!-- Left Column: Canvas & Model Reads -->
+      <div class="left-col">
+        <div class="canvas-container">
+          <canvas id="gameCanvas" width="480" height="432"></canvas>
+          <div class="canvas-hud-overlay">
+            <span id="overlayMap">PALLET TOWN</span>
+            <span id="overlayCoords">05, 04</span>
+            <span id="overlayHiScore">HI 0000 0008</span>
+          </div>
+        </div>
+
+        <div class="reads-container">
+          <div class="section-label">WHAT THE MODEL READS</div>
+          <pre id="jsonModelReads" class="json-box"><code>{
+  "state": {
+    "location": "Pallet Town",
+    "coordinates": [5, 4],
+    "party": [{"species": "Charmander", "level": 6, "hp": "22/22"}],
+    "situation": "Exploring route towards Viridian City"
+  },
+  "questions": {
+    "advance": "Should Red continue north towards Viridian City?",
+    "heal": "Should Red return south to Mom's house in Pallet Town to heal?"
+  }
+}</code></pre>
+          <p class="caption-text">
+            A Pokémon Red SMDP autonomous agent powered by PokemonRL. Every decision fork, the hardware state is extracted from Game Boy WRAM, and PokemonRL evaluates candidate affordances as P(yes) on laptop CPU in 25–110 ms. The agent executes the top affordance via macro options; the game waits while the model answers; the time per decision is shown above.
+          </p>
+        </div>
+      </div>
+
+      <!-- Right Column: Controls, Stats, Answers, Log -->
+      <div class="right-col">
+        
+        <!-- Controls Row -->
+        <div class="controls-row">
+          <button id="btnPause" class="btn btn-dark">Pause</button>
+          <button id="btnNewGame" class="btn btn-outline">New game</button>
+          <label class="checkbox-label">
+            <input type="checkbox" id="chkRestart" checked> restart after a crash
+          </label>
+        </div>
+
+        <!-- 4 Stat Tiles -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="statBadges">0</div>
+            <div class="stat-label">obstacles</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statBest">48</div>
+            <div class="stat-label">best</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statDecisions">129</div>
+            <div class="stat-label">decisions</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statLatency">34</div>
+            <div class="stat-label">ms / decision</div>
+          </div>
+        </div>
+
+        <!-- The Model's Answers (P(YES)) -->
+        <div class="answers-container">
+          <div class="section-label">THE MODEL'S ANSWERS (P(YES))</div>
+          <div id="answersList">
+            <!-- Dynamic rows inserted here -->
+            <div class="answer-item">
+              <div class="answer-question">Should Red head north along Route 1 towards Viridian City?</div>
+              <div class="answer-bar-row">
+                <div class="bar-track">
+                  <div class="bar-fill chosen" style="width: 82%;"></div>
+                </div>
+                <div class="bar-pct">82%</div>
+              </div>
+            </div>
+            <div class="answer-item">
+              <div class="answer-question">Should Red return south to Mom's house in Pallet Town to heal?</div>
+              <div class="answer-bar-row">
+                <div class="bar-track">
+                  <div class="bar-fill" style="width: 14%;"></div>
+                </div>
+                <div class="bar-pct">14%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Log Box -->
+        <div class="log-container">
+          <div class="section-label">LOG</div>
+          <div id="logBox" class="log-box">
+            <!-- Dynamic log entries inserted here -->
+            <div class="log-entry"><span class="log-entry-action">advance</span> <span class="log-entry-pct">82%</span> <span class="log-entry-desc">- path clear ahead, north towards Viridian</span></div>
+            <div class="log-entry"><span class="log-entry-action">grass</span> <span class="log-entry-pct">74%</span> <span class="log-entry-desc">- tall grass step, level 6 Charmander active</span></div>
+            <div class="log-entry"><span class="log-entry-action">advance</span> <span class="log-entry-pct">85%</span> <span class="log-entry-desc">- Route 1 progression confirmed</span></div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    // State & DOM Elements
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const jsonReadsEl = document.getElementById('jsonModelReads');
+    const answersListEl = document.getElementById('answersList');
+    const logBoxEl = document.getElementById('logBox');
+    const btnPause = document.getElementById('btnPause');
+    const btnNewGame = document.getElementById('btnNewGame');
+    const liveStatusDot = document.getElementById('liveStatusDot');
+
+    const statBadges = document.getElementById('statBadges');
+    const statBest = document.getElementById('statBest');
+    const statDecisions = document.getElementById('statDecisions');
+    const statLatency = document.getElementById('statLatency');
+
+    const overlayMap = document.getElementById('overlayMap');
+    const overlayCoords = document.getElementById('overlayCoords');
+    const overlayHiScore = document.getElementById('overlayHiScore');
+    const modelTagLabel = document.getElementById('modelTagLabel');
+
+    let isPaused = false;
+    let pollInterval = null;
+    const offscreenImg = new Image();
+
+    offscreenImg.onload = () => {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(offscreenImg, 0, 0, canvas.width, canvas.height);
+    };
+
+    async function fetchState() {
+      try {
+        const res = await fetch('/api/state');
+        if (!res.ok) return;
+        const data = await res.json();
+        updateUI(data);
+      } catch (err) {
+        // Server might be busy or restarting
+      }
+    }
+
+    function updateUI(data) {
+      // 1. Update Video Frame
+      if (data.frame) {
+        offscreenImg.src = 'data:image/jpeg;base64,' + data.frame;
+      }
+
+      // 2. Update Stats
+      if (data.stats) {
+        statBadges.textContent = data.stats.badges ?? '0';
+        statBest.textContent = data.stats.best ?? '0';
+        statDecisions.textContent = data.stats.decisions ?? '0';
+        statLatency.textContent = Math.round(data.stats.latency_ms ?? 0);
+
+        overlayMap.textContent = data.stats.map_name ?? 'PALLET TOWN';
+        if (data.stats.coords) {
+          overlayCoords.textContent = `${String(data.stats.coords[0]).padStart(2, '0')}, ${String(data.stats.coords[1]).padStart(2, '0')}`;
+        }
+        overlayHiScore.textContent = `HI 0000 ${String(data.stats.best ?? 8).padStart(4, '0')}`;
+        isPaused = !!data.stats.paused;
+        btnPause.textContent = isPaused ? 'Resume' : 'Pause';
+        liveStatusDot.className = isPaused ? 'live-dot paused' : 'live-dot';
+
+        if (data.stats.model_source) {
+          modelTagLabel.textContent = `${data.stats.model_source} · local-rl`;
+        }
+      }
+
+      // 3. Update "WHAT THE MODEL READS"
+      if (data.model_reads) {
+        jsonReadsEl.textContent = JSON.stringify(data.model_reads, null, 2);
+      }
+
+      // 4. Update "THE MODEL'S ANSWERS (P(YES))"
+      if (data.model_answers && Array.isArray(data.model_answers)) {
+        answersListEl.innerHTML = '';
+        data.model_answers.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'answer-item';
+          const isChosen = item.is_chosen ? 'chosen' : '';
+          div.innerHTML = `
+            <div class="answer-question">${escapeHtml(item.question)}</div>
+            <div class="answer-bar-row">
+              <div class="bar-track">
+                <div class="bar-fill ${isChosen}" style="width: ${item.prob}%;"></div>
+              </div>
+              <div class="bar-pct">${item.prob}%</div>
+            </div>
+          `;
+          answersListEl.appendChild(div);
+        });
+      }
+
+      // 5. Update Log
+      if (data.log && Array.isArray(data.log)) {
+        logBoxEl.innerHTML = '';
+        data.log.forEach(entry => {
+          const div = document.createElement('div');
+          div.className = 'log-entry';
+          div.innerHTML = `<span class="log-entry-action">${escapeHtml(entry.action)}</span> <span class="log-entry-pct">${entry.prob}%</span> <span class="log-entry-desc">- ${escapeHtml(entry.context)}</span>`;
+          logBoxEl.appendChild(div);
+        });
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Controls
+    btnPause.addEventListener('click', async () => {
+      const action = isPaused ? 'resume' : 'pause';
+      await fetch('/api/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action })
+      });
+      isPaused = !isPaused;
+      btnPause.textContent = isPaused ? 'Resume' : 'Pause';
+      liveStatusDot.className = isPaused ? 'live-dot paused' : 'live-dot';
+    });
+
+    btnNewGame.addEventListener('click', async () => {
+      await fetch('/api/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset' })
+      });
+    });
+
+    // Start auto polling at 20 Hz
+    pollInterval = setInterval(fetchState, 50);
+    fetchState();
+  </script>
+</body>
+</html>
