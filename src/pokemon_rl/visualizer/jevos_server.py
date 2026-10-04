@@ -392,11 +392,23 @@ class JevosVisualizerHandler(BaseHTTPRequestHandler):
         pass
 
 
+def find_free_port(start_port: int = 8090) -> int:
+    import socket
+    for p in range(start_port, start_port + 50):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("0.0.0.0", p))
+                return p
+            except OSError:
+                continue
+    return start_port
+
+
 class JevosVisualizerServer:
     """Orchestrates HTTP server and background Game Boy emulation worker."""
 
-    def __init__(self, port: int = 8080, rom_path: str = "roms/pokemon_red.gb"):
-        self.port = port
+    def __init__(self, port: Optional[int] = None, rom_path: str = "roms/pokemon_red.gb"):
+        self.port = port if port is not None else find_free_port(8090)
         self.rom_path = rom_path
         self.shared_state = SharedVisualizerState()
         self.worker = EmulationWorker(self.shared_state, rom_path=self.rom_path)
@@ -436,6 +448,8 @@ class JevosVisualizerServer:
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("JEVOS_PORT", 8080))
+    env_port = os.environ.get("JEVOS_PORT")
+    port = int(env_port) if env_port else find_free_port(8090)
     server = JevosVisualizerServer(port=port)
     server.start(blocking=True)
+

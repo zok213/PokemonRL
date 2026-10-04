@@ -63,6 +63,27 @@ class AffordanceBranch:
 # 2. LOCAL NEURAL DECISION HEAD (100% LOCAL, CPU/GPU RUNNABLE)
 # =============================================================================
 
+def calibrate_affordance_softmax(
+    logit_diffs: Dict[str, float],
+    temperature: float = 1.0
+) -> Dict[str, float]:
+    """
+    Multi-Affordance Softmax Calibration:
+      P(o_k) = exp((z_yes^(k) - z_no^(k)) / T) / sum_j exp((z_yes^(j) - z_no^(j)) / T)
+    Ensures candidate options compete in a normalized probability simplex with temperature scaling,
+    eliminating prior probability drift across independent binary decisions.
+    """
+    keys = list(logit_diffs.keys())
+    if not keys:
+        return {}
+    diffs = np.array([logit_diffs[k] for k in keys], dtype=np.float32)
+    scaled = diffs / max(temperature, 1e-4)
+    shifted = scaled - np.max(scaled)
+    exps = np.exp(shifted)
+    probs = exps / np.sum(exps)
+    return {k: float(probs[i]) for i, k in enumerate(keys)}
+
+
 class LocalAffordancePolicy(nn.Module):
     """
     Lightweight, high-speed neural decision policy that scores enumerated affordances.
@@ -125,15 +146,12 @@ class LocalAffordancePolicy(nn.Module):
     def forward(
         self,
         state_tensor: torch.Tensor,
-        candidate_options: Dict[str, str]
+        candidate_options: Dict[str, str],
+        temperature: float = 1.0
     ) -> Tuple[Dict[str, float], Dict[str, float], torch.Tensor]:
         """
-        Forward pass scoring candidate affordances.
-
-        Returns:
-            probabilities: Dict[option_id, float]
-            auxiliary: Dict["faints_this_turn" | "should_flee", float]
-            logits_tensor: torch.Tensor of shape (1, num_options)
+        Forward pass scoring candidate affordances with temperature scaling:
+        P(o_k) = exp((z_yes^(k) - z_no^(k)) / T) / sum_j exp((z_yes^(j) - z_no^(j)) / T)
         """
         state_emb = self.state_encoder(state_tensor)  # (1, embed_dim)
         option_names = list(candidate_options.keys())
@@ -146,9 +164,10 @@ class LocalAffordancePolicy(nn.Module):
         ])  # (K, 16)
         option_embs = self.option_encoder(option_feats)  # (K, embed_dim)
 
-        # Bilinear dot-product score between state embedding and option embeddings
+        # Bilinear dot-product score between state embedding and option embeddings: (z_yes - z_no)
         logits = torch.matmul(state_emb, option_embs.T) / (option_embs.shape[-1] ** 0.5)  # (1, K)
-        probs = F.softmax(logits, dim=-1).squeeze(0)  # (K,)
+        scaled_logits = logits / max(temperature, 1e-4)
+        probs = F.softmax(scaled_logits, dim=-1).squeeze(0)  # (K,)
 
         # Auxiliary predictions
         aux = self.auxiliary_head(state_emb).squeeze(0)  # (2,)
@@ -169,7 +188,7 @@ class LocalAffordancePolicy(nn.Module):
         """Sample or greedily select an affordance with millisecond latency."""
         t0 = time.perf_counter()
         with torch.no_grad():
-            prob_dict, aux_dict, logits = self.forward(state_tensor, candidate_options)
+            prob_dict, aux_dict, logits = self.forward(state_tensor, candidate_options, temperature=temperature)
 
         if not prob_dict:
             return LocalDecision(
@@ -219,8 +238,12 @@ class JevosLocalClient:
         except Exception:
             return False
 
-    def decide(self, branch: AffordanceBranch) -> LocalDecision:
-        """Send branch decision query to local jevos daemon."""
+    def decide(self, branch: AffordanceBranch, temperature: float = 1.0) -> LocalDecision:
+        """
+        Send branch decision query to local jevos daemon and apply
+        Multi-Affordance Softmax Calibration:
+          P(o_k) = exp((z_yes^(k) - z_no^(k)) / T) / sum_j exp((z_yes^(j) - z_no^(j)) / T)
+        """
         t0 = time.perf_counter()
         payload = {
             "model": "jevos-local",
@@ -243,8 +266,20 @@ class JevosLocalClient:
                 data = json.loads(resp.read().decode("utf-8"))
                 answers = data.get("answers", {})
                 choice = answers.get("next_action", {})
-                selected = choice.get("choice") or sorted(branch.legal_options.keys())[0]
-                probs = choice.get("probabilities", {})
+                raw_probs = choice.get("probabilities", {})
+                
+                # Apply Multi-Affordance Softmax Calibration across candidate options
+                if raw_probs and len(raw_probs) > 1:
+                    # Convert probabilities to logit differences Delta z = ln(p / (1 - p + eps))
+                    logit_diffs = {}
+                    for k, p in raw_probs.items():
+                        p_clamped = max(min(float(p), 0.999), 0.001)
+                        logit_diffs[k] = float(np.log(p_clamped / (1.0 - p_clamped)))
+                    probs = calibrate_affordance_softmax(logit_diffs, temperature=temperature)
+                else:
+                    probs = raw_probs or {sorted(branch.legal_options.keys())[0]: 1.0}
+
+                selected = max(probs.keys(), key=lambda k: probs[k]) if probs else sorted(branch.legal_options.keys())[0]
                 latency = (time.perf_counter() - t0) * 1000.0
                 return LocalDecision(
                     selected_option=selected,
@@ -301,14 +336,20 @@ class SMDPDecisionHarness:
 
         return torch.from_numpy(vec).unsqueeze(0).float()
 
-    def step_branch(self, branch: AffordanceBranch, wram_snapshot: Dict[str, Any]) -> LocalDecision:
+    def step_branch(
+        self,
+        branch: AffordanceBranch,
+        wram_snapshot: Dict[str, Any],
+        temperature: float = 1.0
+    ) -> LocalDecision:
         """
-        Execute a single decision step:
+        Execute a single decision step with temperature-scaled calibration:
         Tries local jevos daemon first if active; otherwise uses high-speed LocalAffordancePolicy.
         """
         self.decision_count += 1
         if self.jevos_client.is_available():
-            return self.jevos_client.decide(branch)
+            return self.jevos_client.decide(branch, temperature=temperature)
 
         state_tensor = self.extract_state_tensor(wram_snapshot)
-        return self.policy.decide(state_tensor, branch.legal_options)
+        return self.policy.decide(state_tensor, branch.legal_options, temperature=temperature)
+

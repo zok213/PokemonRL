@@ -125,3 +125,18 @@ def test_jevos_local_client_fallback_when_offline():
     decision = client.decide(branch)
     assert decision.selected_option in ("step_left", "step_up")
     assert "fallback" in decision.model_source
+
+
+def test_calibrate_affordance_softmax_formula():
+    """Verify that calibrate_affordance_softmax satisfies P(o_k) = exp((z_yes^k - z_no^k)/T) / sum exp((z_yes^j - z_no^j)/T)."""
+    from pokemon_rl.agent.local_decision_policy import calibrate_affordance_softmax
+    logit_diffs = {
+        "jump": 1.2,   # z_yes - z_no = 1.2
+        "duck": 0.5,   # z_yes - z_no = 0.5
+        "pass": -1.0,  # z_yes - z_no = -1.0
+    }
+    probs = calibrate_affordance_softmax(logit_diffs, temperature=1.0)
+    assert pytest.approx(sum(probs.values()), rel=1e-5) == 1.0
+    assert probs["jump"] > probs["duck"] > probs["pass"]
+    assert probs["jump"] > 0.5
+
