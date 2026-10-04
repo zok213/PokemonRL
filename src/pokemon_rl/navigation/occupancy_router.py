@@ -109,7 +109,22 @@ class OccupancyGridRouter:
                         h = self._heuristic((nr, nc), goal)
                         heapq.heappush(open_set, (new_cost + h, new_cost, (nr, nc), new_first))
 
-        # Fallback: if goal is beyond the 20x18 window, pick the move that minimizes distance
+        # Fallback: if goal is beyond the 20x18 window, pick the move that minimizes distance.
+        # Penalize reverse directions to prefer lateral orthogonal detours over retreat oscillations.
+        primary_dirs = []
+        if abs(dy) >= abs(dx):
+            if dy < 0: primary_dirs.append("up")
+            elif dy > 0: primary_dirs.append("down")
+            if dx < 0: primary_dirs.append("left")
+            elif dx > 0: primary_dirs.append("right")
+        else:
+            if dx < 0: primary_dirs.append("left")
+            elif dx > 0: primary_dirs.append("right")
+            if dy < 0: primary_dirs.append("up")
+            elif dy > 0: primary_dirs.append("down")
+
+        reverse_dirs = {OPPOSITE.get(p) for p in primary_dirs if OPPOSITE.get(p)}
+
         best_dir = None
         min_dist = float("inf")
         for action_name, (dr, dc) in DIRECTIONS.items():
@@ -118,7 +133,8 @@ class OccupancyGridRouter:
             nr, nc = start[0] + dr, start[1] + dc
             if 0 <= nr < GRID_HEIGHT and 0 <= nc < GRID_WIDTH:
                 if collision_matrix[nr][nc] == 1:
-                    d = abs(goal[0] - nr) + abs(goal[1] - nc)
+                    penalty = 25.0 if action_name in reverse_dirs else 0.0
+                    d = abs(goal[0] - nr) + abs(goal[1] - nc) + penalty
                     if d < min_dist:
                         min_dist = d
                         best_dir = action_name

@@ -67,6 +67,7 @@ MAP_NAMES: Dict[int, str] = {
     44: "Viridian House",
     45: "Viridian Gym",
     47: "Route 22 Gate",
+    50: "Viridian Forest Gate",
     51: "Viridian Forest",
     54: "Pewter Pokecenter",
     55: "Pewter Gym",

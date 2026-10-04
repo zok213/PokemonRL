@@ -22,7 +22,7 @@ import threading
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, Set
 
 import numpy as np
 from PIL import Image
@@ -37,6 +37,7 @@ from pokemon_rl.agent.local_decision_policy import (
 )
 from pokemon_rl.env.real_pyboy_env import RealPyBoyEnvironment
 from pokemon_rl.agent.macro_action_compiler import MacroActionCompiler
+from pokemon_rl.navigation.occupancy_router import OccupancyGridRouter
 from interactive.constants import MAP_NAMES
 
 
@@ -170,7 +171,10 @@ class EmulationWorker(threading.Thread):
         self.running = True
         self.env: Optional[RealPyBoyEnvironment] = None
         self.harness = SMDPDecisionHarness()
+        self.router = OccupancyGridRouter()
         self.last_pos: Optional[Tuple[int, int, int]] = None
+        self.last_action_btn: Optional[str] = None
+        self.blocked_dirs: Set[str] = set()
         self.stuck_count: int = 0
 
     def run(self):
@@ -267,9 +271,14 @@ class EmulationWorker(threading.Thread):
         cur_pos = (map_id, x, y)
         if cur_pos == self.last_pos and not in_battle and not text_active:
             self.stuck_count += 1
+            if self.last_action_btn in ("up", "down", "left", "right"):
+                self.blocked_dirs.add(self.last_action_btn)
         else:
             self.stuck_count = 0
+            self.blocked_dirs.clear()
         self.last_pos = cur_pos
+
+        coll = self.env.get_screen_collision_matrix() if self.env else [[1]*20]*18
 
         # Extract party information from real WRAM
         mon = snapshot.get("active_mon", {})
@@ -283,10 +292,10 @@ class EmulationWorker(threading.Thread):
             situation = f"Combat: Wild Pokémon encounter ({mon_hp}/{mon_max} HP)"
             questions = {
                 "scratch": "Should Charmander attack with Scratch (Power 40)?",
-                "growl": "Should Charmander use Growl to lower enemy Attack?",
+                "attack": "Should Red order Charmander to attack with full offensive power?",
                 "run": "Should Red attempt to flee from this wild encounter?"
             }
-            button_map = {"scratch": "a", "growl": "down", "run": "b"}
+            button_map = {"scratch": "a", "attack": "a", "run": "b"}
         elif text_active:
             situation = "Dialogue: NPC conversation / message active"
             questions = {
@@ -460,19 +469,141 @@ class EmulationWorker(threading.Thread):
                     }
                     button_map = {"bypass_building_west": "left", "check_east": "right", "retreat": "down"}
                 else:
+                    step_dir = self.router.plan_path(coll, (19 - x, 2 - y), blocked_directions=self.blocked_dirs) or "up"
                     questions = {
                         "advance_avenue": "Should Red advance north along the avenue into Viridian City center?",
                         "explore_west": "Should Red check Pokémon Center on the west side?",
                         "retreat": "Should Red turn back south to rest?"
                     }
-                    button_map = {"advance_avenue": "up", "explore_west": "left", "retreat": "down"}
+                    button_map = {"advance_avenue": step_dir, "explore_west": "left", "retreat": "down"}
             else:
+                # Viridian City center: dynamic A* routing around signposts, trees, and buildings towards Route 2
+                target = (18, 0)
+                target_name = "Route 2 & Pewter City"
+
+                step_dir = self.router.plan_path(coll, (target[0] - x, target[1] - y), blocked_directions=self.blocked_dirs)
+                if not step_dir:
+                    if x == 19 and y == 2:
+                        step_dir = "left"
+                    elif y <= 0:
+                        step_dir = "up"
+                    else:
+                        step_dir = "up"
+
                 questions = {
-                    "advance_city": "Should Red advance north into Viridian City square towards the Poké Mart?",
+                    "advance_city": f"Should Red advance north towards {target_name}?",
                     "explore_center": "Should Red explore Viridian City center?",
                     "visit_center": "Should Red visit the Pokémon Center to heal?"
                 }
-                button_map = {"advance_city": "up", "explore_center": "left", "visit_center": "right"}
+                button_map = {
+                    "advance_city": step_dir,
+                    "explore_center": "left" if step_dir != "left" else "right",
+                    "visit_center": "right" if step_dir != "right" else "down"
+                }
+        elif map_id == 13:  # Route 2
+            situation = f"Overworld Navigation: Route 2 (X={x}, Y={y})"
+            # Exact, verified multi-waypoint navigation bypassing trees, ledges, and gatehouse door
+            if y > 62:
+                target = (8, 62)
+            elif y == 62 and x > 7:
+                target = (7, 62)
+            elif y > 57:
+                target = (7, 57)
+            elif y == 57 and x > 3:
+                target = (3, 57)
+            elif y > 48 and x <= 3:
+                target = (3, 48)
+            elif y == 48 and x < 9:
+                target = (9, 48)
+            elif y > 44 and x >= 9:
+                target = (9, 44)
+            elif y == 44 and x > 3:
+                target = (3, 44)
+            else:
+                target = (3, 43)
+
+            step_dir = self.router.plan_path(coll, (target[0] - x, target[1] - y), blocked_directions=self.blocked_dirs)
+            if not step_dir:
+                if (x, y) == (3, 43):
+                    step_dir = "up"
+                elif y == 48 and x < 9:
+                    step_dir = "right"
+                elif y == 44 and x > 3:
+                    step_dir = "left"
+                elif y == 57 and x > 3:
+                    step_dir = "left"
+                else:
+                    step_dir = "up"
+
+            questions = {
+                "advance_route2": "Should Red advance north along Route 2 towards Viridian Forest?",
+                "explore_grass": "Should Red step into roadside grass to train Pokémon?",
+                "retreat": "Should Red turn back south towards Viridian City?"
+            }
+            button_map = {
+                "advance_route2": step_dir,
+                "explore_grass": "left" if step_dir != "left" else "right",
+                "retreat": "down"
+            }
+        elif map_id == 50:  # Viridian Forest South Gate
+            situation = f"Interior: Viridian Forest South Gate (X={x}, Y={y})"
+            if text_active:
+                questions = {
+                    "talk_guard": "Should Red talk to the gate guard?",
+                    "proceed": "Should Red press A to advance dialogue?"
+                }
+                button_map = {"talk_guard": "a", "proceed": "a"}
+            elif y <= 1:
+                step_dir = "right" if x < 5 else "up"
+                questions = {
+                    "enter_forest": "Should Red step through the north gate into Viridian Forest?",
+                    "look_around": "Should Red inspect gate interior?"
+                }
+                button_map = {"enter_forest": step_dir, "look_around": "left"}
+            else:
+                step_dir = self.router.plan_path(coll, (5 - x, 0 - y), blocked_directions=self.blocked_dirs) or "up"
+                questions = {
+                    "advance_forest_gate": "Should Red walk north through the gatehouse towards Viridian Forest?",
+                    "look_around": "Should Red inspect gate interior?"
+                }
+                button_map = {"advance_forest_gate": step_dir, "look_around": "left"}
+        elif map_id == 51:  # Viridian Forest
+            situation = f"Exploration: Viridian Forest (X={x}, Y={y})"
+            # At south entrance border (y >= 47), immediately step up into the forest interior
+            if y >= 47:
+                step_dir = "up"
+            else:
+                step_dir = self.router.plan_path(coll, (1 - x, 0 - y), blocked_directions=self.blocked_dirs) or "up"
+            questions = {
+                "advance_forest": "Should Red navigate through Viridian Forest towards Pewter City?",
+                "train_pokemon": "Should Red search for wild Pikachu / Caterpie in the tall grass?",
+                "retreat": "Should Red turn back south towards Route 2?"
+            }
+            button_map = {
+                "advance_forest": step_dir,
+                "train_pokemon": "left" if step_dir != "left" else "right",
+                "retreat": "down"
+            }
+        elif map_id == 42:  # Viridian Poké Mart
+            situation = f"Interior: Viridian Poké Mart (X={x}, Y={y})"
+            if text_active:
+                questions = {
+                    "talk_clerk": "Should Red talk to the clerk to receive Oak's Parcel?",
+                    "proceed": "Should Red press A to confirm parcel receipt?"
+                }
+                button_map = {"talk_clerk": "a", "proceed": "a"}
+            elif y >= 7:
+                questions = {
+                    "step_outside": "Should Red step through the door back to Viridian City?",
+                    "counter": "Should Red approach the front counter?"
+                }
+                button_map = {"step_outside": "down", "counter": "up"}
+            else:
+                questions = {
+                    "counter": "Should Red approach the front counter to receive Oak's Parcel?",
+                    "browse": "Should Red inspect shop shelves?"
+                }
+                button_map = {"counter": "up", "browse": "right"}
         else:
             situation = f"Overworld Navigation: {map_name} (X={x}, Y={y})"
             questions = {
@@ -519,12 +650,27 @@ class EmulationWorker(threading.Thread):
 
         # Send action to emulator if available
         if self.env is not None:
-            btn = button_map.get(decision.selected_option, "a")
-            self.env.send_button(btn, hold_frames=8, release_frames=14, render=True)
             if in_battle:
-                self.env.tick_frames(20, render=True)
-            elif text_active:
-                self.env.tick_frames(10, render=True)
+                if decision.selected_option == "run":
+                    # Flee from wild encounter: move cursor to RUN (down, right) and confirm (A)
+                    self.env.send_button("down", hold_frames=6, release_frames=8, render=True)
+                    self.env.send_button("right", hold_frames=6, release_frames=8, render=True)
+                    self.env.send_button("a", hold_frames=8, release_frames=14, render=True)
+                    self.env.tick_frames(25, render=True)
+                    self.env.send_button("b", hold_frames=6, release_frames=8, render=True)
+                else:
+                    # Attack: select FIGHT (A) and execute move (A), advancing combat turns
+                    self.env.send_button("a", hold_frames=8, release_frames=14, render=True)
+                    self.env.tick_frames(12, render=True)
+                    self.env.send_button("a", hold_frames=8, release_frames=14, render=True)
+                    self.env.tick_frames(25, render=True)
+                self.last_action_btn = "a"
+            else:
+                btn = button_map.get(decision.selected_option, "a")
+                self.last_action_btn = btn
+                self.env.send_button(btn, hold_frames=8, release_frames=14, render=True)
+                if text_active:
+                    self.env.tick_frames(10, render=True)
             self.shared.update_frame(self.env.pyboy.screen.ndarray)
 
         model_name = "PokemonRL-Daemon" if "Daemon" in decision.model_source else "PokemonRL-Local"
