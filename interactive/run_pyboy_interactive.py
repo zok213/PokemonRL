@@ -42,7 +42,7 @@ def parse_args():
     parser.add_argument(
         "--checkpoint",
         type=str,
-        default="external/PokemonRedExperiments/v2/runs/poke_26214400.zip",
+        default="external/PokemonRedExperiments/baselines/session_4da05e87_main_good/poke_439746560_steps.zip",
         help="Path to pretrained PPO checkpoint (.zip)",
     )
     parser.add_argument(
