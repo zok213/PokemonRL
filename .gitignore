@@ -19,6 +19,7 @@ build/
 *.pt
 *.pth
 *.ckpt
+!models/pokemonrl_affordance_model.pt
 
 # JAX / XLA cache
 .jax_cache/

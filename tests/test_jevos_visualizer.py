@@ -108,7 +108,8 @@ def test_emulation_worker_affordance_fork():
     worker._evaluate_affordance_fork(mock_battle)
     snap2 = state.snapshot()
     assert snap2["stats"]["decisions"] == 2
-    assert "scratch" in snap2["model_reads"]["questions"]
+    assert "attack_scratch" in snap2["model_reads"]["questions"] or "attack_ember" in snap2["model_reads"]["questions"]
+    assert "run" in snap2["model_reads"]["questions"]
 
 
 def test_jevos_server_http_endpoints():

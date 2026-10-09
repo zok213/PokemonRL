@@ -23,9 +23,11 @@ Key Components:
 from __future__ import annotations
 import hashlib
 import json
+import os
 import time
 import urllib.request
 import urllib.error
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Any
 
@@ -95,7 +97,13 @@ class LocalAffordancePolicy(nn.Module):
       - Calibrated Softmax: Outputs probability distribution over legal options
     """
 
-    def __init__(self, state_dim: int = 32, hidden_dim: int = 128, embed_dim: int = 64):
+    def __init__(
+        self,
+        state_dim: int = 32,
+        hidden_dim: int = 128,
+        embed_dim: int = 64,
+        weights_path: Optional[str] = None
+    ):
         super().__init__()
         self.state_encoder = nn.Sequential(
             nn.Linear(state_dim, hidden_dim),
@@ -115,6 +123,43 @@ class LocalAffordancePolicy(nn.Module):
             nn.Linear(32, 2),  # [P(faints_this_turn), P(should_flee)]
             nn.Sigmoid()
         )
+        self.is_trained: bool = False
+        self.neural_weight: float = 0.45
+
+        # Check for weights to load
+        target_path = weights_path or "models/pokemonrl_affordance_model.pt"
+        if target_path and os.path.exists(target_path):
+            self.load_weights(target_path)
+
+    def save_weights(self, path: str | Path):
+        """Persist trained neural weights and hyper-parameters to disk."""
+        target_path = Path(path)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        torch.save({
+            "state_dict": self.state_dict(),
+            "state_dim": 32,
+            "hidden_dim": 128,
+            "embed_dim": 64,
+            "is_trained": True,
+        }, str(target_path))
+        self.is_trained = True
+
+    def load_weights(self, path: str | Path) -> bool:
+        """Load persistent PyTorch weights for zero-shot and warm-start execution."""
+        target_path = Path(path)
+        if not target_path.exists():
+            return False
+        try:
+            checkpoint = torch.load(str(target_path), map_location="cpu")
+            if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
+                self.load_state_dict(checkpoint["state_dict"])
+            else:
+                self.load_state_dict(checkpoint)
+            self.is_trained = True
+            return True
+        except Exception as e:
+            print(f"[!] Warning: Failed to load weights from {target_path}: {e}")
+            return False
 
     def _encode_option_features(self, option_id: str, description: str) -> torch.Tensor:
         """Deterministically encode semantic properties of an affordance into a 16-dim feature."""
@@ -211,7 +256,7 @@ class LocalAffordancePolicy(nn.Module):
 
         # Bilinear dot-product score between state embedding and option embeddings: (z_yes - z_no)
         neural_logits = torch.matmul(state_emb, option_embs.T) / (option_embs.shape[-1] ** 0.5)  # (1, K)
-        total_logits = 0.15 * neural_logits + prior_logits
+        total_logits = self.neural_weight * neural_logits + prior_logits
         scaled_logits = total_logits / max(temperature, 1e-4)
         probs = F.softmax(scaled_logits, dim=-1).squeeze(0)  # (K,)
 
@@ -366,17 +411,24 @@ class SMDPDecisionHarness:
     Decouples low-level joypad execution from high-level decision learning.
     """
 
-    def __init__(self, local_policy: Optional[LocalAffordancePolicy] = None):
-        self.policy = local_policy or LocalAffordancePolicy()
+    def __init__(self, local_policy: Optional[LocalAffordancePolicy] = None, weights_path: Optional[str] = None):
+        self.policy = local_policy or LocalAffordancePolicy(weights_path=weights_path)
         self.jevos_client = JevosLocalClient()
         self.decision_count = 0
 
-    def extract_state_tensor(self, wram_snapshot: Dict[str, Any]) -> torch.Tensor:
+    def extract_state_tensor(
+        self,
+        wram_snapshot: Dict[str, Any],
+        subgoal: Optional[Tuple[int, int]] = None
+    ) -> torch.Tensor:
         """Vectorize GameBoy state into normalized 32-dim feature tensor."""
         vec = np.zeros(32, dtype=np.float32)
+        cur_x = float(wram_snapshot.get("x", 0))
+        cur_y = float(wram_snapshot.get("y", 0))
+
         vec[0] = float(wram_snapshot.get("map_id", 0)) / 255.0
-        vec[1] = float(wram_snapshot.get("x", 0)) / 64.0
-        vec[2] = float(wram_snapshot.get("y", 0)) / 64.0
+        vec[1] = cur_x / 64.0
+        vec[2] = cur_y / 64.0
         vec[3] = float(wram_snapshot.get("party_count", 1)) / 6.0
         vec[4] = float(wram_snapshot.get("badges", 0)) / 8.0
         vec[5] = 1.0 if wram_snapshot.get("in_battle", False) else 0.0
@@ -388,12 +440,29 @@ class SMDPDecisionHarness:
             vec[6] = float(hp) / float(max_hp)
             vec[7] = float(mon.get("level", 5)) / 100.0
 
+        # WRAM combat metadata: battle_type (2 = trainer, 1 = wild)
+        b_type = wram_snapshot.get("battle_type", 1)
+        vec[8] = 1.0 if b_type == 2 else (0.5 if b_type == 1 else 0.0)
+
+        # WRAM text box flag
+        vec[9] = 1.0 if wram_snapshot.get("text_box_id", 0) != 0 else 0.0
+
+        # Topological Subgoal displacement and Euclidean distance
+        if subgoal is not None:
+            dx = float(subgoal[0] - cur_x)
+            dy = float(subgoal[1] - cur_y)
+            dist = np.sqrt(dx * dx + dy * dy)
+            vec[10] = dx / 64.0
+            vec[11] = dy / 64.0
+            vec[12] = dist / 64.0
+
         return torch.from_numpy(vec).unsqueeze(0).float()
 
     def step_branch(
         self,
         branch: AffordanceBranch,
         wram_snapshot: Dict[str, Any],
+        subgoal: Optional[Tuple[int, int]] = None,
         temperature: float = 1.0
     ) -> LocalDecision:
         """
@@ -406,7 +475,7 @@ class SMDPDecisionHarness:
             decision.model_source = "PokemonRL-JevosDaemon"
             return decision
 
-        state_tensor = self.extract_state_tensor(wram_snapshot)
+        state_tensor = self.extract_state_tensor(wram_snapshot, subgoal=subgoal)
         decision = self.policy.decide(state_tensor, branch.legal_options, temperature=temperature)
         decision.model_source = "PokemonRL-LocalPolicy"
         return decision
