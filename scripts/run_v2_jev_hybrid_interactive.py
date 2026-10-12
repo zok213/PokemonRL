@@ -116,6 +116,9 @@ def main():
             battle_type = env.read_m(0xD057)
             badges = env.read_m(0xD356)
             text_box = env.read_m(0xCF13)
+            font_loaded = (env.read_m(0xCFC4) & 1) != 0
+            border_tile = env.read_m(0xC3A0 + 17 * 20 + 19) == 0x7E
+            is_text_active = (font_loaded or border_tile) and (text_box != 0)
 
             hp_val = env.read_hp(0xD16C)
             max_hp = max(1, env.read_hp(0xD18D))
@@ -132,7 +135,8 @@ def main():
                 "in_battle": in_battle,
                 "battle_type": battle_type,
                 "badges": badges,
-                "text_box_id": text_box,
+                "text_box_id": 1 if is_text_active else 0,
+                "text_box_active": is_text_active,
                 "active_mon": {
                     "hp": hp_val,
                     "max_hp": max_hp,

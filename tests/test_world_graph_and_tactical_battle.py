@@ -127,6 +127,36 @@ def test_world_graph_pallet_town():
     assert sg2.goal_name == "enter_route1"
     assert sg2.is_warp is True
 
+    # East of road in Pallet Town
+    sg3 = nav.get_subgoal(0, 13, 5)
+    assert sg3.goal_name == "align_west_to_road"
+    assert sg3.target_coord == (10, 6)
+
+
+def test_world_graph_blues_and_reds_house():
+    nav = WorldGraphNavigator()
+    # Inside Blue's House at Daisy's table
+    sg1 = nav.get_subgoal(39, 2, 4)
+    assert sg1.goal_name == "exit_blues_house"
+    assert sg1.target_coord == (2, 7)
+    assert sg1.is_warp is False
+
+    # At door mat of Blue's house
+    sg2 = nav.get_subgoal(39, 2, 7)
+    assert sg2.goal_name == "step_outside_blues_house"
+    assert sg2.target_coord == (2, 8)
+    assert sg2.is_warp is True
+
+    # Inside Red's House 1F
+    sg3 = nav.get_subgoal(37, 2, 4)
+    assert sg3.goal_name == "exit_reds_house"
+    assert sg3.target_coord == (2, 7)
+
+    # Inside Red's House 2F
+    sg4 = nav.get_subgoal(38, 3, 5)
+    assert sg4.goal_name == "descend_stairs"
+    assert sg4.target_coord == (7, 1)
+
 
 def test_world_graph_route1_waypoints():
     nav = WorldGraphNavigator()

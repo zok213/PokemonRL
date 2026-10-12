@@ -100,3 +100,72 @@ def test_v2_hybrid_policy_anti_stagnation_scaling():
     assert policy.stuck_counter == 2
     assert d3.steering_weight > 1.0
     assert "Anti-Stagnation Active" in d3.affordance_situation
+
+
+def test_v2_hybrid_policy_dialogue_loop_breaker():
+    """Verify that prolonged text dialogues switch from A to B to prevent infinite re-trigger loops."""
+    policy = BaselineV2JevSteeredPolicy()
+    snap = {
+        "map_id": 39,
+        "x": 2,
+        "y": 4,
+        "in_battle": False,
+        "text_box_active": True,
+        "text_box_id": 1,
+    }
+
+    # Steps 1 to 3: advance text rapidly with Button A
+    for step in range(1, 4):
+        d = policy.decide(snap, obs=None)
+        assert d.action_name == "A"
+        assert "Advancing text with Button A" in d.affordance_situation
+
+    # Step 4: anti-loop dismiss latch engages, chooses B
+    d4 = policy.decide(snap, obs=None)
+    assert d4.action_name == "B"
+    assert "Anti-loop dismiss active" in d4.affordance_situation
+
+
+def test_v2_hybrid_policy_post_dialogue_anti_retrigger_shield():
+    """Verify that when dialogue closes, Button A is heavily suppressed to allow stepping away."""
+    policy = BaselineV2JevSteeredPolicy()
+    snap_dialogue = {
+        "map_id": 39,
+        "x": 2,
+        "y": 4,
+        "in_battle": False,
+        "text_box_active": True,
+        "text_box_id": 1,
+    }
+    policy.decide(snap_dialogue, obs=None)
+
+    # Dialogue closes on next frame
+    snap_closed = {
+        "map_id": 39,
+        "x": 2,
+        "y": 4,
+        "in_battle": False,
+        "text_box_active": False,
+        "text_box_id": 0,
+    }
+    d_closed = policy.decide(snap_closed, obs=None)
+    assert "Anti-Retrigger Active" in d_closed.affordance_situation
+    assert d_closed.action_name != "A"
+    assert d_closed.steered_probs["A"] < 0.05
+    # Subgoal in Blue's House at (2, 4) is south (2, 7) -> DOWN
+    assert d_closed.action_name == "DOWN"
+
+
+def test_v2_hybrid_policy_blues_house_exit_navigation():
+    """Verify that inside Blue's House (Map 39), Red is guided south to the exit mat at (2, 7)."""
+    policy = BaselineV2JevSteeredPolicy()
+    snap = {
+        "map_id": 39,
+        "x": 2,
+        "y": 5,
+        "in_battle": False,
+        "text_box_id": 0,
+    }
+    d = policy.decide(snap, obs=None)
+    assert d.action_name == "DOWN"
+    assert "exit_blues_house" in d.affordance_situation

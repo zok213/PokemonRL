@@ -180,6 +180,9 @@ class EmulationWorker(threading.Thread):
         self.last_action_btn: Optional[str] = None
         self.blocked_dirs: Set[str] = set()
         self.stuck_count: int = 0
+        self.dialogue_steps: int = 0
+        self.dialogue_cooldown: int = 0
+        self.was_in_dialogue: bool = False
 
     def run(self):
         # 1. Initialize RealPyBoyEnvironment with authentic save state
@@ -240,7 +243,9 @@ class EmulationWorker(threading.Thread):
 
                 # Execute decision at affordance forks (every 10 steps, or immediately in battle / dialogue)
                 in_battle = snapshot["in_battle"]
-                in_dialogue = snapshot["text_box_id"] != 0
+                font_loaded = ((self.env.pyboy.memory[0xCFC4] & 1) != 0) if self.env else False
+                border_tile = (self.env.pyboy.memory[0xC3A0 + 17*20 + 19] == 0x7E) if self.env else False
+                in_dialogue = (font_loaded or border_tile) and (snapshot["text_box_id"] != 0)
                 if step_idx % 10 == 0 or in_battle or in_dialogue:
                     self._evaluate_affordance_fork(snapshot)
                 else:
@@ -270,7 +275,14 @@ class EmulationWorker(threading.Thread):
         x = snapshot.get("x", 5)
         y = snapshot.get("y", 4)
         in_battle = snapshot.get("in_battle", False)
-        text_active = snapshot.get("text_box_id", 0) != 0
+        font_loaded = ((self.env.pyboy.memory[0xCFC4] & 1) != 0) if self.env else False
+        border_tile = (self.env.pyboy.memory[0xC3A0 + 17*20 + 19] == 0x7E) if self.env else False
+        text_active = (font_loaded or border_tile) and (snapshot.get("text_box_id", 0) != 0)
+
+        # Detect transition out of dialogue -> trigger anti-retrigger shield
+        if self.was_in_dialogue and not text_active:
+            self.dialogue_cooldown = 4
+        self.was_in_dialogue = text_active
 
         cur_pos = (map_id, x, y)
         if cur_pos == self.last_pos and not in_battle and not text_active:
@@ -298,13 +310,25 @@ class EmulationWorker(threading.Thread):
             # Tactical Battle Controller evaluates authentic Gen 1 mechanics
             questions, button_map, situation = self.battle_controller.evaluate_combat_affordances(snapshot)
         elif text_active:
-            situation = "Dialogue: NPC conversation / message active"
-            questions = {
-                "advance": "Should Red press A to advance dialogue text?",
-                "proceed": "Should Red press A to finish conversation and proceed?"
-            }
-            button_map = {"advance": "a", "proceed": "a"}
+            self.dialogue_steps += 1
+            if self.dialogue_steps <= 3:
+                situation = f"Dialogue: Advancing text with Button A (step {self.dialogue_steps})"
+                questions = {
+                    "advance": "Should Red press A to advance dialogue text?",
+                    "proceed": "Should Red press A to finish conversation and proceed?"
+                }
+                button_map = {"advance": "a", "proceed": "a"}
+            else:
+                situation = f"Dialogue: Anti-loop dismiss active (step {self.dialogue_steps}) -> Close with Button B"
+                btn = "b" if self.dialogue_steps % 2 == 1 else "a"
+                questions = {
+                    "dismiss": "Should Red press B to dismiss dialogue window?",
+                    "advance": "Should Red press A to advance text?"
+                }
+                button_map = {"dismiss": btn, "advance": btn}
         else:
+            # Dialogue finished
+            self.dialogue_steps = 0
             # Overworld navigation using Topological World Graph Navigator
             badges = snapshot.get("badges", 0)
             subgoal_obj = self.world_navigator.get_subgoal(map_id, x, y, badges=badges)
@@ -388,6 +412,10 @@ class EmulationWorker(threading.Thread):
                 self.last_action_btn = "a"
             else:
                 btn = button_map.get(decision.selected_option, "a")
+                if self.dialogue_cooldown > 0:
+                    self.dialogue_cooldown -= 1
+                    if btn == "a":
+                        btn = button_map.get("advance", "down")
                 self.last_action_btn = btn
                 self.env.send_button(btn, hold_frames=8, release_frames=14, render=True)
                 if text_active:

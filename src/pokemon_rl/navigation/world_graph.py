@@ -52,9 +52,40 @@ class WorldGraphNavigator:
                 return MapSubgoal((4, 11), "exit_lab", "Walk south towards laboratory exit", is_warp=False)
             return MapSubgoal((4, 12), "step_outside", "Step through door into Pallet Town", is_warp=True)
 
+        # 1b. Blue's House / Daisy's House (Map 39)
+        elif map_id == 39:
+            if y < 7:
+                return MapSubgoal((2, 7), "exit_blues_house", "Walk south towards exit of Blue's house", is_warp=False)
+            return MapSubgoal((2, 8), "step_outside_blues_house", "Step through door into Pallet Town", is_warp=True)
+
+        # 1c. Red's House 1F (Map 37) & 2F (Map 38)
+        elif map_id == 37:
+            if y < 7:
+                return MapSubgoal((2, 7), "exit_reds_house", "Walk south towards exit of Red's house", is_warp=False)
+            return MapSubgoal((2, 8), "step_outside_reds_house", "Step through door into Pallet Town", is_warp=True)
+        elif map_id == 38:
+            return MapSubgoal((7, 1), "descend_stairs", "Walk to stairs to descend to 1F", is_warp=True)
+
+        # 1d. Viridian City Interiors (Map 41, 43, 44)
+        elif map_id == 41:  # Viridian Pokecenter
+            if y < 7:
+                return MapSubgoal((3, 7), "exit_pokecenter", "Walk south towards Pokecenter exit", is_warp=False)
+            return MapSubgoal((3, 8), "step_outside_pokecenter", "Step through door into Viridian City", is_warp=True)
+        elif map_id in (43, 44):  # Viridian School / Houses
+            if y < 7:
+                return MapSubgoal((2, 7), "exit_house", "Walk south towards house exit", is_warp=False)
+            return MapSubgoal((2, 8), "step_outside_house", "Step through door into Viridian City", is_warp=True)
+
         # 2. Pallet Town (Map 0)
         elif map_id == 0:
-            if y > 1:
+            if x > 11:
+                # Align west onto main central avenue to bypass Blue's House doorway (13, 5) and northeast trees
+                target_y = y if y >= 6 else 6
+                return MapSubgoal((10, target_y), "align_west_to_road", "Align west onto central Pallet Town avenue")
+            elif x < 9:
+                target_y = y if y >= 6 else 6
+                return MapSubgoal((10, target_y), "align_east_to_road", "Align east onto central Pallet Town avenue")
+            elif y > 1:
                 return MapSubgoal((10, 0), "north_to_route1", "Advance north along Pallet Town road to Route 1")
             return MapSubgoal((10, -1), "enter_route1", "Step north through border into Route 1", is_warp=True)
 

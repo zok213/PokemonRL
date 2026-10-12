@@ -94,6 +94,12 @@ class BaselineV2JevSteeredPolicy:
         self.last_pos: Optional[Tuple[int, int, int]] = None
         self.stuck_counter: int = 0
         self.blocked_dirs: set[str] = set()
+        self.last_action_name: Optional[str] = None
+
+        # Anti-dialogue lock and retrigger memory
+        self.dialogue_steps: int = 0
+        self.dialogue_cooldown: int = 0
+        self.was_in_dialogue: bool = False
 
     def _load_v2_model(self):
         """Load pretrained Stable-Baselines3 PPO policy weights into CPU memory."""
@@ -138,16 +144,29 @@ class BaselineV2JevSteeredPolicy:
         """
         z_aff = torch.zeros(len(ACTION_NAMES), device=self.device)
         in_battle = snapshot.get("in_battle", False)
-        text_active = snapshot.get("text_box_id", 0) != 0
+
+        # Precise dialogue detection
+        if "text_box_active" in snapshot:
+            text_active = bool(snapshot["text_box_active"])
+        else:
+            text_active = snapshot.get("text_box_id", 0) != 0
+
         map_id = snapshot.get("map_id", 0)
         x = snapshot.get("x", 0)
         y = snapshot.get("y", 0)
         badges = snapshot.get("badges", 0)
 
+        # Detect transition out of dialogue -> trigger anti-retrigger shield
+        if self.was_in_dialogue and not text_active:
+            self.dialogue_cooldown = 4
+        self.was_in_dialogue = text_active
+
         # Track spatial stagnation
         cur_pos = (map_id, x, y)
         if cur_pos == self.last_pos and not in_battle and not text_active:
             self.stuck_counter += 1
+            if self.last_action_name in ("down", "left", "right", "up"):
+                self.blocked_dirs.add(self.last_action_name)
         else:
             self.stuck_counter = 0
             self.blocked_dirs.clear()
@@ -179,12 +198,29 @@ class BaselineV2JevSteeredPolicy:
 
             return z_aff, situation, 2.0  # High steering weight in combat
 
-        # 2. Dialogue / Menu State: Advance Text with Button A
+        # 2. Dialogue / Menu State: Advance Text with Button A / B and break loops
         if text_active:
-            situation = "Dialogue: Text box active -> Advance with Button A"
-            z_aff[ACTION_TO_IDX["a"]] += 4.5
-            z_aff[ACTION_TO_IDX["start"]] -= 6.0
+            self.dialogue_steps += 1
+            if self.dialogue_steps <= 3:
+                # Early dialogue: advance text rapidly with Button A
+                situation = f"Dialogue: Advancing text with Button A (step {self.dialogue_steps})"
+                z_aff[ACTION_TO_IDX["a"]] += 4.5
+                z_aff[ACTION_TO_IDX["start"]] -= 6.0
+            else:
+                # Prolonged dialogue: alternate B and A to safely dismiss without re-triggering NPC interaction
+                if self.dialogue_steps % 2 == 0:
+                    situation = f"Dialogue: Anti-loop dismiss active (step {self.dialogue_steps}) -> Dismiss with Button B"
+                    z_aff[ACTION_TO_IDX["b"]] += 4.5
+                    z_aff[ACTION_TO_IDX["a"]] -= 4.0
+                else:
+                    situation = f"Dialogue: Advancing text with Button A (step {self.dialogue_steps})"
+                    z_aff[ACTION_TO_IDX["a"]] += 4.5
+                    z_aff[ACTION_TO_IDX["b"]] -= 4.0
+                z_aff[ACTION_TO_IDX["start"]] -= 6.0
             return z_aff, situation, 2.5
+
+        # Reset dialogue steps when dialogue is not active
+        self.dialogue_steps = 0
 
         # 3. Overworld Navigation State: Ground in Topological World Graph
         subgoal_obj: MapSubgoal = self.world_navigator.get_subgoal(map_id, x, y, badges=badges)
@@ -197,16 +233,32 @@ class BaselineV2JevSteeredPolicy:
         step_dir = self.router.plan_path(coll, (tg_x - x, tg_y - y), blocked_directions=self.blocked_dirs)
 
         if not step_dir:
-            # Vector fallback
+            # Vector fallback with blocked direction avoidance
             dx = tg_x - x
             dy = tg_y - y
+            candidates = []
             if abs(dx) >= abs(dy):
-                step_dir = "right" if dx > 0 else "left"
+                candidates = ["right" if dx > 0 else "left", "down" if dy > 0 else "up"]
             else:
-                step_dir = "down" if dy > 0 else "up"
+                candidates = ["down" if dy > 0 else "up", "right" if dx > 0 else "left"]
+
+            # Select first unblocked candidate
+            step_dir = next((d for d in candidates if d not in self.blocked_dirs), candidates[0])
 
         if step_dir and step_dir in ACTION_TO_IDX:
             z_aff[ACTION_TO_IDX[step_dir]] += 3.0
+
+        # Suppress any currently blocked directions
+        for b_dir in self.blocked_dirs:
+            if b_dir in ACTION_TO_IDX:
+                z_aff[ACTION_TO_IDX[b_dir]] -= 6.0
+
+        # Post-Dialogue Anti-Retrigger Shield:
+        # After conversation closes, heavily suppress Button A to prevent re-opening dialogue with NPC
+        if self.dialogue_cooldown > 0:
+            self.dialogue_cooldown -= 1
+            z_aff[ACTION_TO_IDX["a"]] -= 8.0
+            situation += f" [Anti-Retrigger Active: Suppressing 'A' for {self.dialogue_cooldown + 1} steps]"
 
         # Anti-Stagnation Circuit Breaker: If stuck for >2 frames, scale up steering
         if self.stuck_counter >= 2:
@@ -250,6 +302,9 @@ class BaselineV2JevSteeredPolicy:
         # Check if affordance steering altered V2's raw argmax
         v2_raw_idx = int(torch.argmax(z_v2).item())
         is_overridden = (best_idx != v2_raw_idx) and (self.v2_model is not None)
+
+        # Record chosen action for obstacle bump detection
+        self.last_action_name = best_name.lower()
 
         latency = (time.perf_counter() - t0) * 1000.0
 
