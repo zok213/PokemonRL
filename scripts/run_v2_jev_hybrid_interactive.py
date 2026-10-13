@@ -36,6 +36,7 @@ def parse_args():
     parser.add_argument("--steps", type=int, default=1000, help="Number of steps to execute (0 = infinite)")
     parser.add_argument("--alpha", type=float, default=1.2, help="Jev affordance steering strength (default: 1.2)")
     parser.add_argument("--checkpoint", type=str, default=None, help="Custom path to PPO checkpoint .zip")
+    parser.add_argument("--state", type=str, default=None, help="Custom path to Game Boy .state file")
     return parser.parse_args()
 
 
@@ -54,12 +55,15 @@ def main():
         sys.exit(1)
 
     # 2. Resolve Init Save State
-    state_candidates = [
-        REPO_ROOT / "external" / "PokemonRedExperiments" / "has_pokedex_nballs.state",
-        REPO_ROOT / "external" / "PokemonRedExperiments" / "init.state",
-        REPO_ROOT / "saves" / "has_pokedex_nballs.state",
-    ]
-    state_path = next((str(p) for p in state_candidates if p.exists()), None)
+    if args.state and Path(args.state).exists():
+        state_path = str(Path(args.state).resolve())
+    else:
+        state_candidates = [
+            REPO_ROOT / "external" / "PokemonRedExperiments" / "has_pokedex_nballs.state",
+            REPO_ROOT / "external" / "PokemonRedExperiments" / "init.state",
+            REPO_ROOT / "saves" / "has_pokedex_nballs.state",
+        ]
+        state_path = next((str(p) for p in state_candidates if p.exists()), None)
 
     # 3. Resolve Checkpoint
     ckpt_path = args.checkpoint or str(V2_DIR / "runs" / "poke_26214400.zip")
@@ -101,6 +105,11 @@ def main():
 
     obs, info = env.reset()
     step_count = 0
+    saved_pewter = bool(args.state and "pewter" in args.state)
+    saved_badge = False
+    saved_route3 = False
+    saved_route4 = False
+    saved_mt_moon = False
 
     print("\n[+] Starting live policy execution loop...\n", flush=True)
 
@@ -123,23 +132,71 @@ def main():
             hp_val = env.read_hp(0xD16C)
             max_hp = max(1, env.read_hp(0xD18D))
             lvl = env.read_m(0xD18C)
-            moves = [env.read_m(0xD173), env.read_m(0xD174), env.read_m(0xD175), env.read_m(0xD176)]
+
+            # In battle active Pokemon HP (0xD015) vs overworld lead party HP (0xD16C)
+            battle_hp = env.read_hp(0xD015) if in_battle else hp_val
+            battle_max_hp = max(1, env.read_hp(0xD023)) if in_battle else max_hp
+
+            # Party count and party HPs
+            party_count = env.read_m(0xD163)
+            party_hps = [env.read_hp(0xD16C + i * 44) for i in range(party_count)] if party_count > 0 else [hp_val]
+
+            # Battle menu coordinates, moves, and PP values
+            menu_y = env.read_m(0xCC24)
+            menu_x = env.read_m(0xCC25)
+            cur_item = env.read_m(0xCC26)
+            battle_moves = [env.read_m(0xD01C + i) for i in range(4)]
+            party_moves = [env.read_m(0xD173 + i) for i in range(4)]
+            moves = battle_moves if in_battle and any(m > 0 for m in battle_moves) else party_moves
+            move_pps = [env.read_m(0xD02D + i) for i in range(4)] if in_battle else [35, 40, 25, 30]
 
             opp_species = env.read_m(0xCFE5)
             opp_hp = env.read_hp(0xCFE6)
+            is_evolving = env.read_m(0xCCD3) != 0
+            first_mons_not_out = env.read_m(0xD11D) != 0 if in_battle else False
+
+            # Check if interactive arrow cursor (0xED) is actively rendered in wTileMap
+            c_lo = env.read_m(0xCC30)
+            c_hi = env.read_m(0xCC31)
+            c_ptr = c_lo | (c_hi << 8)
+            tile_at_cursor = env.read_m(c_ptr) if (0xC3A0 <= c_ptr < 0xC508) else 0
+            menu_cursor_active = (tile_at_cursor == 0xED) if in_battle else True
+
+            # Check if any player move is currently disabled by Disable (wPlayerDisabledMove at 0xD06D)
+            dis_byte = env.read_m(0xD06D) if in_battle else 0
+            disabled_move_slot = (((dis_byte >> 4) & 0x0F) - 1) if (dis_byte & 0xF0) != 0 else -1
+
+            # Check player direction and fossil acquisition (via event flags OR Bag inventory: 0x29 Dome, 0x2A Helix)
+            player_dir = env.read_m(0xC109)
+            bag_count = env.read_m(0xD31D)
+            bag_items = [env.read_m(0xD31E + 2 * i) for i in range(bag_count)]
+            fossil_byte = env.read_m(0xD5A6 + 549 // 8)
+            event_fossil = bool(fossil_byte & ((1 << (549 % 8)) | (1 << (550 % 8))))
+            has_fossil = event_fossil or (0x29 in bag_items) or (0x2A in bag_items)
 
             snapshot = {
                 "map_id": map_id,
                 "x": cur_x,
                 "y": cur_y,
+                "player_dir": player_dir,
+                "has_fossil": has_fossil,
                 "in_battle": in_battle,
                 "battle_type": battle_type,
                 "badges": badges,
                 "text_box_id": 1 if is_text_active else 0,
                 "text_box_active": is_text_active,
+                "first_mons_not_out": first_mons_not_out,
+                "menu_cursor_active": menu_cursor_active,
+                "is_evolving": is_evolving,
+                "battle_menu_y": menu_y,
+                "battle_menu_x": menu_x,
+                "battle_cur_item": cur_item,
+                "move_pps": move_pps,
+                "party_hps": party_hps,
+                "disabled_move_slot": disabled_move_slot,
                 "active_mon": {
-                    "hp": hp_val,
-                    "max_hp": max_hp,
+                    "hp": battle_hp,
+                    "max_hp": battle_max_hp,
                     "level": lvl,
                     "moves": moves
                 },
@@ -147,8 +204,11 @@ def main():
                 "opponent_hp": opp_hp
             }
 
+            # Read real-time collision matrix from PyBoy
+            coll_matrix = env.pyboy.game_area_collision() if hasattr(env.pyboy, "game_area_collision") else None
+
             # Hybrid Decision: V2 Logits + Jev Affordances
-            decision = policy.decide(snapshot, obs=obs)
+            decision = policy.decide(snapshot, obs=obs, collision_matrix=coll_matrix)
 
             # Step Environment
             obs, rewards, terminated, truncated, info = env.step(decision.action_idx)
@@ -160,9 +220,10 @@ def main():
                 v2_pct = int(decision.v2_probs[v2_top] * 100)
                 steered_pct = int(decision.steered_probs[decision.action_name] * 100)
                 override_str = "YES [Steered]" if decision.is_overridden else "No [Prior Agree]"
+                hp_str = f"BattleHP={battle_hp}/{battle_max_hp}" if in_battle else f"LeadHP={hp_val}/{max_hp}"
 
                 print(
-                    f"Step {step_count:4d} | {map_str:12s} ({cur_x:2d},{cur_y:2d}) | HP={hp_val}/{max_hp} Lv={lvl} | "
+                    f"Step {step_count:4d} | {map_str:12s} ({cur_x:2d},{cur_y:2d}) | {hp_str} Lv={lvl} | "
                     f"V2: {v2_top} ({v2_pct}%) -> Chosen: {decision.action_name} ({steered_pct}%) | Override: {override_str} | "
                     f"Context: {decision.affordance_situation}",
                     flush=True
@@ -170,6 +231,69 @@ def main():
 
             if not args.headless:
                 env.render()
+
+            # Milestone Save States
+            if map_id == 2 and not saved_pewter:
+                saved_pewter = True
+                save_file = REPO_ROOT / "saves" / "pewter_city.state"
+                save_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(save_file, "wb") as f:
+                    env.pyboy.save_state(f)
+                print(f"\n[+] MILESTONE ACHIEVED: ENTERED PEWTER CITY! Saved: {save_file.name}\n", flush=True)
+
+            if (badges & 1 != 0) and not saved_badge:
+                saved_badge = True
+                save_file = REPO_ROOT / "saves" / "boulder_badge.state"
+                save_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(save_file, "wb") as f:
+                    env.pyboy.save_state(f)
+                print(f"\n[+] MILESTONE ACHIEVED: BOULDER BADGE ACQUIRED! Saved: {save_file.name}\n", flush=True)
+
+            if map_id == 14 and not saved_route3:
+                saved_route3 = True
+                save_file = REPO_ROOT / "saves" / "route3.state"
+                save_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(save_file, "wb") as f:
+                    env.pyboy.save_state(f)
+                print(f"\n[+] MILESTONE ACHIEVED: ENTERED ROUTE 3! Saved: {save_file.name}\n", flush=True)
+
+            if map_id == 15 and cur_x < 22 and not saved_route4:
+                saved_route4 = True
+                save_file = REPO_ROOT / "saves" / "route4.state"
+                save_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(save_file, "wb") as f:
+                    env.pyboy.save_state(f)
+                print(f"\n[+] MILESTONE ACHIEVED: ENTERED ROUTE 4! Saved: {save_file.name}\n", flush=True)
+
+            if map_id in (59, 60, 61) and not saved_mt_moon:
+                saved_mt_moon = True
+                save_file = REPO_ROOT / "saves" / "mt_moon.state"
+                save_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(save_file, "wb") as f:
+                    env.pyboy.save_state(f)
+                print(f"\n[+] MILESTONE ACHIEVED: ENTERED MT. MOON! Saved: {save_file.name}\n", flush=True)
+
+            if step_count % 100 == 0:
+                ckpt_file = REPO_ROOT / "saves" / "checkpoint_progress.state"
+                ckpt_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(ckpt_file, "wb") as f:
+                    env.pyboy.save_state(f)
+
+            if map_id == 3:
+                save_file = REPO_ROOT / "saves" / "cerulean_city.state"
+                save_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(save_file, "wb") as f:
+                    env.pyboy.save_state(f)
+                print(
+                    f"\n{'='*75}\n"
+                    f"  [+] MISSION ACCOMPLISHED: CERULEAN CITY REACHED AT STEP {step_count}!\n"
+                    f"  From Pallet Town -> Route 1 -> Viridian -> Route 2 -> Viridian Forest\n"
+                    f"  -> Pewter City -> Pewter Gym -> Route 3 -> Route 4 -> Mt. Moon -> Cerulean City!\n"
+                    f"  Saved Final State: {save_file.name}\n"
+                    f"{'='*75}\n",
+                    flush=True
+                )
+                break
 
             if truncated or (args.steps > 0 and step_count >= args.steps):
                 break

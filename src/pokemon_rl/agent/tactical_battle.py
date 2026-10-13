@@ -259,9 +259,17 @@ class TacticalBattleController:
         if not move_ids or all(m == 0 for m in move_ids):
             move_ids = [10, 52]
 
+        move_pps = wram_snapshot.get("move_pps", [35, 40, 25, 30])
+        if not move_pps or len(move_pps) < 4:
+            move_pps = [35, 40, 25, 30]
+
         scored_moves = []
         for slot_idx, m_id in enumerate(move_ids[:4]):
             if m_id == 0:
+                continue
+            # If move has 0 PP, it cannot be legally selected in combat
+            pp = move_pps[slot_idx] if slot_idx < len(move_pps) else 1
+            if pp == 0:
                 continue
             move = GEN1_MOVES.get(m_id, MoveData(f"MOVE_{m_id}", "NORMAL", 40, 1.0, "PHYSICAL"))
             exp_dmg, mult, tag = cls.calculate_expected_damage(
@@ -273,7 +281,7 @@ class TacticalBattleController:
         scored_moves.sort(key=lambda item: item[2], reverse=True)
 
         questions: Dict[str, str] = {}
-        button_map: Dict[str, str] = {}
+        button_map: Dict[str, Any] = {}
 
         # 1. Best Attack Affordance
         if scored_moves:
@@ -284,8 +292,9 @@ class TacticalBattleController:
                 f"Should Red execute {best_move.name} (Power {best_move.power}, "
                 f"ExpDmg ~{best_dmg:.0f}){tag_suffix}?"
             )
-            # Action: 'a' selects FIGHT, 'a' confirms Move 1 (or cursor down to slot)
             button_map[opt_id] = "a"
+            button_map["target_slot"] = best_slot
+            button_map["target_move_name"] = best_move.name
 
             # 2. Secondary Attack Affordance if available
             if len(scored_moves) > 1:
@@ -297,6 +306,10 @@ class TacticalBattleController:
                     f"(Power {sec_move.power}, ExpDmg ~{sec_dmg:.0f}){sec_tag_suffix}?"
                 )
                 button_map[sec_id] = "a"
+        else:
+            # Fallback when all moves are exhausted (Struggle)
+            button_map["target_slot"] = 0
+            button_map["target_move_name"] = "STRUGGLE"
 
         # 3. Flee Affordance (STRICTLY ILLEGAL IN TRAINER BATTLES)
         if battle_type != 2:

@@ -169,3 +169,117 @@ def test_v2_hybrid_policy_blues_house_exit_navigation():
     d = policy.decide(snap, obs=None)
     assert d.action_name == "DOWN"
     assert "exit_blues_house" in d.affordance_situation
+
+
+def test_v2_hybrid_policy_move_selection_navigation():
+    """Verify that in trainer combat, the policy decisively steers Attack with Button A when cursor is aligned with optimal move."""
+    policy = BaselineV2JevSteeredPolicy()
+    snap = {
+        "map_id": 54,
+        "x": 4,
+        "y": 2,
+        "in_battle": True,
+        "battle_type": 2,
+        "battle_menu_y": 7,  # Move selection menu (wTopMenuItemY == 7)
+        "battle_cur_item": 3,  # Cursor aligned on Move 3 (Ember=52, 1-based item 3)
+        "move_pps": [35, 40, 25, 30],
+        "active_mon": {"hp": 40, "max_hp": 40, "level": 15, "moves": [10, 45, 52, 43]}
+    }
+    d0 = policy.decide(snap, obs=None)
+    assert d0.action_name == "A"
+    assert "attack with Button A" in d0.affordance_situation
+    assert d0.steered_probs["A"] > 0.90
+
+
+def test_v2_hybrid_policy_depleted_pp_move_navigation():
+    """Verify that when Move 1 is depleted (0 PP), policy navigates cursor to Move 3 (Ember)."""
+    policy = BaselineV2JevSteeredPolicy()
+    snap = {
+        "map_id": 54,
+        "x": 4,
+        "y": 2,
+        "in_battle": True,
+        "battle_type": 2,
+        "battle_menu_y": 7,  # Move selection menu (wTopMenuItemY == 7)
+        "battle_cur_item": 1,  # Cursor on Move 1 (1-based item 1)
+        "move_pps": [0, 40, 25, 30],  # Move 1 has 0 PP, Move 3 (Ember=52) has 25 PP
+        "active_mon": {"hp": 25, "max_hp": 40, "level": 15, "moves": [10, 45, 52, 43]}
+    }
+    d = policy.decide(snap, obs=None)
+    assert d.action_name == "DOWN"
+    assert "Move DOWN" in d.affordance_situation and "Move 3" in d.affordance_situation
+    assert d.steered_probs["DOWN"] > 0.85
+
+    # When cursor reaches Move 3 (1-based item 3), it presses A
+    snap["battle_cur_item"] = 3
+    d_aligned = policy.decide(snap, obs=None)
+    assert d_aligned.action_name == "A"
+    assert "attack with Button A" in d_aligned.affordance_situation
+
+
+def test_v2_hybrid_policy_battle_stall_unjamming():
+    """Verify that if battle state stalls for >= 6 steps, unjamming watchdog activates."""
+    policy = BaselineV2JevSteeredPolicy()
+    snap = {
+        "map_id": 54,
+        "x": 4,
+        "y": 2,
+        "in_battle": True,
+        "battle_type": 2,
+        "battle_cur_item": 0,
+        "opponent_hp": 30,
+        "active_mon": {"hp": 20, "max_hp": 40, "level": 15, "moves": [10, 45, 52, 43]}
+    }
+    # Execute 7 steps (first step sets baseline, next 6 steps increment counter to 6)
+    for _ in range(7):
+        d = policy.decide(snap, obs=None)
+
+    assert policy.battle_stall_counter >= 6
+    assert "Combat: Menu/PP stall detected" in d.affordance_situation
+
+
+def test_v2_hybrid_policy_bubble_move_priority():
+    """Verify that Bubble (Move 145) is prioritized over Tackle (33) and Tail Whip (39)."""
+    policy = BaselineV2JevSteeredPolicy()
+    snap = {
+        "map_id": 54,  # Pewter Gym
+        "x": 4,
+        "y": 2,
+        "in_battle": True,
+        "battle_type": 2,
+        "battle_menu_y": 7,  # In move selection menu
+        "battle_cur_item": 1,  # Cursor on Move 1 (Tackle, 1-based item 1)
+        "move_pps": [35, 30, 30, 0],
+        "active_mon": {"hp": 28, "max_hp": 28, "level": 9, "moves": [33, 39, 145, 0]}
+    }
+    # Should navigate DOWN to Move 3 (Bubble)
+    d = policy.decide(snap, obs=None)
+    assert d.action_name == "DOWN"
+    assert "Selecting Move 3" in d.affordance_situation
+    assert d.steered_probs["DOWN"] > 0.85
+
+    # Once cursor reaches Move 3 (1-based item 3), should press Button A to unleash Bubble
+    snap["battle_cur_item"] = 3
+    d2 = policy.decide(snap, obs=None)
+    assert d2.action_name == "A"
+    assert "Executing attack with Button A" in d2.affordance_situation
+
+
+def test_v2_hybrid_policy_warp_doorway_boost():
+    """Verify that at warp doorway thresholds (e.g. Pokécenter entrance), steering weight scales to >=2.8 and forces entry."""
+    policy = BaselineV2JevSteeredPolicy()
+    snap = {
+        "map_id": 2,  # Pewter City
+        "x": 13,
+        "y": 26,  # Standing right before Pokécenter door at (13, 25)
+        "badges": 0,
+        "in_battle": False,
+        "text_box_id": 0,
+        "active_mon": {"hp": 0, "max_hp": 28, "level": 9, "moves": [33, 39, 145, 0]}  # Fainted mon needs healing
+    }
+    d = policy.decide(snap, obs=None)
+    assert d.action_name == "UP"
+    assert d.steering_weight >= 2.8
+    assert "Warp Doorway Transition" in d.affordance_situation
+    assert d.steered_probs["UP"] > 0.90
+
