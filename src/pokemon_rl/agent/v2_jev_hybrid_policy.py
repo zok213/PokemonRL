@@ -37,6 +37,7 @@ if str(V2_DIR) not in sys.path:
     sys.path.insert(0, str(V2_DIR))
 
 from pokemon_rl.agent.tactical_battle import TacticalBattleController
+from pokemon_rl.combat.combat_controller import DecoupledCombatController
 from pokemon_rl.navigation.world_graph import WorldGraphNavigator, MapSubgoal
 from pokemon_rl.navigation.occupancy_router import OccupancyGridRouter
 
@@ -88,6 +89,7 @@ class BaselineV2JevSteeredPolicy:
 
         # Initialize Jev modular controllers
         self.battle_controller = TacticalBattleController()
+        self.combat_controller = DecoupledCombatController()
         self.world_navigator = WorldGraphNavigator()
         self.router = OccupancyGridRouter()
 
@@ -115,6 +117,9 @@ class BaselineV2JevSteeredPolicy:
         """Load pretrained Stable-Baselines3 PPO policy weights into CPU memory."""
         if self.checkpoint_path and self.checkpoint_path.exists():
             try:
+                # Protect against broken tensorflow installation in user roaming packages
+                import sys
+                sys.modules.setdefault("tensorflow", None)
                 from stable_baselines3 import PPO
                 # Use custom_objects to prevent Windows PosixPath deserialization errors
                 self.v2_model = PPO.load(
@@ -311,44 +316,38 @@ class BaselineV2JevSteeredPolicy:
             ]
 
             if menu_y in (7, 12) and valid_moves:
-                def move_priority(item):
+                opp_species = snapshot.get("opponent_species", 0)
+                user_species = snapshot.get("user_species", 0)
+                if opp_species == 0:
+                    if map_id == 54:
+                        opp_species = 0x22  # Onix (Brock Gym)
+                    elif map_id == 65:
+                        opp_species = 0x98  # Starmie (Misty Gym)
+                if user_species == 0:
+                    active_moves = snapshot.get("active_mon", {}).get("moves", [])
+                    if 145 in active_moves or 55 in active_moves:
+                        user_species = 0xB1  # Squirtle
+                    elif 52 in active_moves:
+                        user_species = 0xB0  # Charmander
+                    elif 22 in active_moves:
+                        user_species = 0x99  # Bulbasaur
+
+                opp_def_mod = snapshot.get("opp_def_mod", 7)
+                user_atk_mod = snapshot.get("user_atk_mod", 7)
+
+                def move_evaluator(item):
                     idx, pp, m_id = item
                     if pp <= 0:
-                        return -100
-                    # Cerulean Gym (Map 65): Opponents are Water-type (Goldeen, Horsea, Shellder, Staryu, Starmie)
-                    if map_id == 65:
-                        opp_species = snapshot.get("opponent_species", 0)
-                        opp_def_mod = snapshot.get("opp_def_mod", 7)
-                        # In Cerulean Gym: Use Tail Whip (39) to shred opponent's defense if not yet lowered!
-                        if opp_def_mod >= 6 and m_id == 39:
-                            return 120
-                        if m_id in (22, 72, 73, 85):  # Super-effective Grass / Electric
-                            return 150
-                        if m_id in (5, 44, 10, 33, 98, 64, 16, 21):  # Neutral Physical moves (Mega Punch, Bite, Tackle, Scratch)
-                            return 100
-                        if m_id in (145, 55):  # Resisted Water moves (Bubble, Water Gun)
-                            return 40
-                        if m_id in (39, 45, 43, 81, 106, 110):  # Status moves
-                            return 5
-                        return 20
-                    # High-value damaging Special attacks (super effective against rock/ground and early gyms)
-                    # 145 = Bubble (Water Special, 4x on Geodude/Onix/Diglett)
-                    # 52  = Ember (Fire Special, destroys bug/grass)
-                    # 55  = Water Gun (Water Special)
-                    # 22  = Vine Whip (Grass Special)
-                    if m_id in (145, 52, 55, 22):
-                        return 100
-                    # Damaging physical attacks
-                    # 10 = Scratch, 33 = Tackle, 98 = Quick Attack, 64 = Peck, 16 = Gust, 21 = Slam
-                    if m_id in (10, 33, 98, 64, 16, 21):
-                        return 50 if map_id != 54 else 40
-                    # Zero-damage / non-damaging status moves in early game
-                    # 39 = Tail Whip, 45 = Growl, 43 = Leer, 81 = String Shot, 106 = Harden, 110 = Withdraw
-                    if m_id in (39, 45, 43, 81, 106, 110):
-                        return 1
-                    return 20
+                        return -100.0
+                    return self.combat_controller.evaluate_move_by_id(
+                        move_id=m_id,
+                        opp_species_id=opp_species,
+                        user_species_id=user_species,
+                        opp_def_mod=opp_def_mod,
+                        user_atk_mod=user_atk_mod,
+                    )
 
-                best_target = max(valid_moves, key=move_priority)[0]
+                best_target = max(valid_moves, key=move_evaluator)[0]
                 target_menu_item = best_target + 1  # In Gen 1 MoveSelectionMenu, wCurrentMenuItem is strictly 1-based (1..4)
                 if cur_item < target_menu_item:
                     z_aff[ACTION_TO_IDX["down"]] += 4.5
@@ -508,58 +507,30 @@ class BaselineV2JevSteeredPolicy:
 
         situation = f"Overworld Navigation: Map {map_id} ({x},{y}) -> {subgoal_obj.goal_name}"
 
-        # Direct NPC interaction for claiming Dome Fossil
-        if subgoal_obj.goal_name == "claim_dome_fossil":
-            player_dir = snapshot.get("player_dir", 0)
-            if player_dir == 12:  # facing right
-                z_aff[ACTION_TO_IDX["a"]] += 6.0
-                situation = "Mt Moon B2F: Facing Dome Fossil at (12, 6) -> Press Button A to claim fossil"
-                return z_aff, situation, 2.8
-            else:
-                z_aff[ACTION_TO_IDX["right"]] += 6.0
-                situation = "Mt Moon B2F: Adjacent to Dome Fossil -> Turn RIGHT to face fossil"
-                return z_aff, situation, 2.8
-
-        # Direct NPC interaction for Gym Leader challenge
-        if subgoal_obj.goal_name == "interact_brock":
-            player_dir = snapshot.get("player_dir", 0)
-            if player_dir == 4:  # facing up
-                z_aff[ACTION_TO_IDX["a"]] += 6.0
-                situation = "Pewter Gym: Facing Brock -> Challenge with Button A"
-                return z_aff, situation, 2.8
-            else:
-                z_aff[ACTION_TO_IDX["up"]] += 6.0
-                situation = "Pewter Gym: Below Brock -> Turn UP to face Brock"
-                return z_aff, situation, 2.8
-
-        if subgoal_obj.goal_name in ("interact_misty", "challenge_misty"):
-            player_dir = snapshot.get("player_dir", 0)
-            if player_dir == 4:  # facing up
-                z_aff[ACTION_TO_IDX["a"]] += 6.0
-                situation = "Cerulean Gym: Facing Misty from (4, 3) -> Challenge with Button A"
-                return z_aff, situation, 2.8
-            else:
-                z_aff[ACTION_TO_IDX["up"]] += 6.0
-                situation = "Cerulean Gym: At (4, 3) below Misty -> Turn UP to face Misty"
-                return z_aff, situation, 2.8
-
-        if subgoal_obj.goal_name == "challenge_misty_from_right":
-            player_dir = snapshot.get("player_dir", 0)
-            if player_dir == 8:  # facing left
-                z_aff[ACTION_TO_IDX["a"]] += 6.0
-                situation = "Cerulean Gym: Facing Misty from (5, 2) -> Challenge with Button A"
-                return z_aff, situation, 2.8
-            else:
-                z_aff[ACTION_TO_IDX["left"]] += 6.0
-                situation = "Cerulean Gym: At (5, 2) right of Misty -> Turn LEFT to face Misty"
-                return z_aff, situation, 2.8
-
-        # Direct NPC interaction for Nurse Joy healing
-        if subgoal_obj.goal_name == "interact_nurse_joy":
-            z_aff[ACTION_TO_IDX["up"]] += 2.0
-            z_aff[ACTION_TO_IDX["a"]] += 5.0
-            situation = f"Pokécenter: Standing before Nurse Joy -> Heal party with Button A"
-            return z_aff, situation, 2.5
+        # Unified Orthogonal Interaction Law (Applies to all NPC / item subgoals)
+        if subgoal_obj.is_interaction or subgoal_obj.goal_name in ("claim_dome_fossil", "interact_brock", "challenge_misty", "challenge_misty_from_right", "interact_nurse_joy"):
+            dx = tg_x - x
+            dy = tg_y - y
+            # In Gen 1 WRAM (wPlayerFacingDirection at 0xC109):
+            # 0: DOWN, 4: UP, 8: LEFT, 12: RIGHT
+            dir_map = {
+                (1, 0): (12, "right"),
+                (-1, 0): (8, "left"),
+                (0, 1): (0, "down"),
+                (0, -1): (4, "up"),
+            }
+            req = dir_map.get((dx, dy))
+            if req is not None:
+                req_dir, req_act = req
+                player_dir = snapshot.get("player_dir", 0)
+                if player_dir == req_dir:
+                    z_aff[ACTION_TO_IDX["a"]] += 6.0
+                    situation = f"Interaction: Facing target at ({tg_x},{tg_y}) -> Press Button A"
+                    return z_aff, situation, 2.8
+                else:
+                    z_aff[ACTION_TO_IDX[req_act]] += 6.0
+                    situation = f"Interaction: Adjacent to ({tg_x},{tg_y}) -> Turn {req_act.upper()} to face target"
+                    return z_aff, situation, 2.8
 
         # Direct doorway / exit mat steps for small indoor maps
         dx = tg_x - x

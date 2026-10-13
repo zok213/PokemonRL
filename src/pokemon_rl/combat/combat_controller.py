@@ -16,7 +16,7 @@ Gen 1 LR35902 Accurate Implementation:
   6. Opponent Deterministic AI prediction (pret/pokered/engine/battle/ai/trainer_ai.asm).
 """
 
-from __future__ import annotations
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pokemon_rl.env.wram_map import Action, RAMMap
@@ -25,6 +25,11 @@ from pokemon_rl.env.wram_map import Action, RAMMap
 # High-critical-hit-ratio moves in Generation 1
 GEN1_HIGH_CRIT_MOVES = {
     "SLASH", "RAZOR LEAF", "CRABHAMMER", "KARATE CHOP"
+}
+
+# Gen 1 Physical Types (Damage scales with Attack vs Defense)
+GEN1_PHYSICAL_TYPES = {
+    "NORMAL", "FIGHTING", "FLYING", "GROUND", "ROCK", "BUG", "GHOST", "POISON"
 }
 
 
@@ -151,9 +156,205 @@ class DecoupledCombatController:
         ("DRAGON", "DRAGON"): 2.0,
     }
 
-    def __init__(self):
+    def __init__(self, repo_root: Optional[Path] = None):
         self.current_cursor_pos: int = 0
         self.nav_queue: List[int] = []
+        self.moves_data: Dict[int, Dict[str, Any]] = {}
+        self.species_data: Dict[int, Dict[str, Any]] = {}
+        self.species_names: Dict[int, str] = {}
+        self._load_assembly_data(repo_root)
+
+    def _load_assembly_data(self, repo_root: Optional[Path] = None) -> None:
+        """
+        Dynamically loads authentic Generation 1 move and species base stats
+        from the pret/pokered disassembly:
+          - external/pokered/data/moves/moves.asm (all 165 moves)
+          - external/pokered/data/pokemon/dex_order.asm (internal index mapping)
+          - external/pokered/data/pokemon/base_stats/*.asm (all 151 species)
+        """
+        if repo_root is None:
+            repo_root = Path(__file__).resolve().parent.parent.parent.parent
+
+        moves_path = repo_root / "external" / "pokered" / "data" / "moves" / "moves.asm"
+        if moves_path.exists():
+            try:
+                lines = moves_path.read_text(encoding="utf-8").splitlines()
+                idx = 1
+                for line in lines:
+                    line = line.strip()
+                    if line.startswith("move "):
+                        parts = [p.strip() for p in line[5:].split(",")]
+                        if len(parts) >= 6:
+                            acc_str = parts[4].replace("percent", "").strip()
+                            acc = float(acc_str) / 100.0 if acc_str.isdigit() else 1.0
+                            self.moves_data[idx] = {
+                                "name": parts[0],
+                                "effect": parts[1],
+                                "power": int(parts[2]),
+                                "type": parts[3].upper(),
+                                "accuracy": acc,
+                                "pp": int(parts[5]),
+                            }
+                            idx += 1
+            except Exception:
+                pass
+
+        const_path = repo_root / "external" / "pokered" / "constants" / "pokemon_constants.asm"
+        if const_path.exists():
+            try:
+                lines = const_path.read_text(encoding="utf-8").splitlines()
+                curr_id = 0
+                for line in lines:
+                    line = line.strip()
+                    if line.startswith("const_def"):
+                        curr_id = 0
+                    elif line.startswith("const "):
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            self.species_names[curr_id] = parts[1].lower()
+                        curr_id += 1
+                    elif line.startswith("const_skip"):
+                        curr_id += 1
+            except Exception:
+                pass
+
+        stats_dir = repo_root / "external" / "pokered" / "data" / "pokemon" / "base_stats"
+        if stats_dir.exists() and self.species_names:
+            try:
+                for i_id, name in self.species_names.items():
+                    if name in ("missingno", "no_mon"):
+                        continue
+                    fname = name + ".asm"
+                    if name == "nidoran_m":
+                        fname = "nidoranm.asm"
+                    elif name == "nidoran_f":
+                        fname = "nidoranf.asm"
+                    elif name == "mr_mime":
+                        fname = "mrmime.asm"
+                    fpath = stats_dir / fname
+                    if fpath.exists():
+                        flines = fpath.read_text(encoding="utf-8").splitlines()
+                        stats, types = None, None
+                        for l in flines:
+                            l = l.strip()
+                            if stats is None and l.startswith("db ") and "," in l and "DEX_" not in l:
+                                p_parts = [p.strip() for p in l[3:].split(",")]
+                                if len(p_parts) == 5 and all(p.isdigit() for p in p_parts):
+                                    stats = [int(p) for p in p_parts]
+                            elif stats is not None and types is None and l.startswith("db ") and "," in l:
+                                t_parts = l[3:].split(";")[0].split(",")
+                                types = tuple(t.strip().replace("_TYPE", "") for t in t_parts)
+                                break
+                        if stats and types:
+                            self.species_data[i_id] = {
+                                "name": name,
+                                "stats": stats,
+                                "types": types,
+                            }
+            except Exception:
+                pass
+
+    def evaluate_move_by_id(
+        self,
+        move_id: int,
+        opp_species_id: int = 0,
+        user_species_id: int = 0,
+        opp_def_mod: int = 7,
+        user_atk_mod: int = 7,
+    ) -> float:
+        """
+        Mathematically evaluate any Gen 1 move by ID grounded in authentic assembly data.
+        Returns: Expected damage score taking into account:
+          - Base power and physical/special category
+          - User attack/special and opponent defense/special
+          - Stat stage modifiers (opp_def_mod, user_atk_mod in [1..13])
+          - 15x15 type matchup multipliers (including dual typings)
+          - STAB (1.5x)
+          - Base speed critical hit rate
+          - Status move compound strategic value (defense shredding, sleep, attack boost)
+        """
+        move = self.moves_data.get(move_id)
+        if not move:
+            # Fallback heuristic for unparsed move IDs
+            return 20.0
+
+        name = move["name"]
+        effect = move["effect"]
+        power = move["power"]
+        m_type = move["type"]
+        acc = move["accuracy"]
+
+        opp_info = self.species_data.get(opp_species_id)
+        if opp_info:
+            opp_types = opp_info["types"]
+            opp_def = opp_info["stats"][2]
+            opp_spc = opp_info["stats"][4]
+        else:
+            opp_types = ("NORMAL", "NORMAL")
+            opp_def = 50
+            opp_spc = 50
+
+        user_info = self.species_data.get(user_species_id)
+        if user_info:
+            user_types = user_info["types"]
+            user_atk = user_info["stats"][1]
+            user_spd = user_info["stats"][3]
+            user_spc = user_info["stats"][4]
+        else:
+            user_types = ("NORMAL", "NORMAL")
+            user_atk = 50
+            user_spd = 50
+            user_spc = 50
+
+        # Handle Status moves (power == 0)
+        if power == 0:
+            if effect in ("DEFENSE_DOWN1_EFFECT", "DEFENSE_DOWN2_EFFECT"):
+                # Tail Whip, Leer, Screech: If opponent defense is bulky and un-shredded
+                if opp_def_mod >= 6 and opp_def >= 75:
+                    return 25.0
+                return 2.0
+            elif effect in ("ATTACK_UP1_EFFECT", "ATTACK_UP2_EFFECT"):
+                return 20.0
+            elif effect in ("SLEEP_EFFECT", "PARALYZE_EFFECT"):
+                return 30.0
+            return 1.0
+
+        # Handle Damaging moves (power > 0)
+        # Type effectiveness
+        def_t1 = opp_types[0] if len(opp_types) > 0 else "NORMAL"
+        def_t2 = opp_types[1] if len(opp_types) > 1 else None
+        mult = self.get_type_multiplier(m_type, def_t1, def_t2)
+        if mult == 0.0:
+            return 0.0  # Complete immunity (e.g. Normal vs Ghost, Ghost vs Psychic)
+
+        # STAB (1.5x)
+        stab = 1.5 if (m_type in user_types) else 1.0
+
+        # Gen 1 accuracy (1/256 miss bug: max 255/256)
+        eff_acc = min(acc, 255.0 / 256.0)
+
+        # Critical hit probability
+        crit_rate = self.calculate_gen1_crit_rate(name, user_spd)
+        crit_factor = 1.0 + crit_rate
+
+        # Stat ratio: Physical vs Special in Gen 1
+        if m_type in GEN1_PHYSICAL_TYPES:
+            # Physical damage: user Atk vs opp Def
+            def_stage = max(1, min(13, opp_def_mod))
+            atk_stage = max(1, min(13, user_atk_mod))
+
+            def_mult = (2.0 / (2.0 + (7 - def_stage))) if def_stage < 7 else ((2.0 + (def_stage - 7)) / 2.0)
+            atk_mult = ((2.0 + (atk_stage - 7)) / 2.0) if atk_stage >= 7 else (2.0 / (2.0 + (7 - atk_stage)))
+
+            eff_atk = user_atk * atk_mult
+            eff_def = max(1.0, opp_def * def_mult)
+            stat_ratio = eff_atk / eff_def
+        else:
+            # Special damage: user Special vs opp Special
+            stat_ratio = user_spc / max(1.0, float(opp_spc))
+
+        expected_score = power * stat_ratio * mult * stab * eff_acc * crit_factor
+        return float(expected_score)
 
     def get_type_multiplier(
         self,

@@ -23,6 +23,7 @@ class MapSubgoal:
     goal_name: str
     description: str
     is_warp: bool = False
+    is_interaction: bool = False
 
 
 class WorldGraphNavigator:
@@ -339,7 +340,7 @@ class WorldGraphNavigator:
                 elif y == 3:
                     return MapSubgoal((4, 2), "challenge_brock", "Step up to Gym Leader Brock to battle for Boulder Badge")
                 else:
-                    return MapSubgoal((4, 2), "interact_brock", "Speak with Brock to initiate battle for Boulder Badge")
+                    return MapSubgoal((4, 1), "interact_brock", "Speak with Brock to initiate battle for Boulder Badge", is_interaction=True)
             else:
                 # Brock defeated, exit south through Gym doorway
                 if y < 13:
@@ -446,7 +447,7 @@ class WorldGraphNavigator:
             if (x, y) == (15, 27):
                 return MapSubgoal((29, 27), "b2f_bottom_cavern_east", "Advance east along southern cavern")
             if not has_fossil and (x, y) == (11, 6):
-                return MapSubgoal((12, 6), "claim_dome_fossil", "Claim Dome Fossil with Button A")
+                return MapSubgoal((12, 6), "claim_dome_fossil", "Claim Dome Fossil with Button A", is_interaction=True)
             if (x, y) == (5, 7):
                 return MapSubgoal((5, 7), "ascend_to_b1f_exit", "Ascend ladder towards cave exit", is_warp=True)
             wp = self._bfs_next_waypoint(61, (x, y), (5, 7), lookahead=1)
@@ -477,9 +478,9 @@ class WorldGraphNavigator:
         elif map_id == 65:
             if (badges & 2) == 0:
                 if (x, y) == (4, 3):
-                    return MapSubgoal((4, 2), "challenge_misty", "Step up to Gym Leader Misty to battle for Cascade Badge")
+                    return MapSubgoal((4, 2), "challenge_misty", "Step up to Gym Leader Misty to battle for Cascade Badge", is_interaction=True)
                 elif (x, y) == (5, 2):
-                    return MapSubgoal((4, 2), "challenge_misty_from_right", "Face west towards Gym Leader Misty to battle for Cascade Badge")
+                    return MapSubgoal((4, 2), "challenge_misty_from_right", "Face west towards Gym Leader Misty to battle for Cascade Badge", is_interaction=True)
                 else:
                     wp = self._bfs_next_waypoint(65, (x, y), (4, 3), lookahead=1)
                     return MapSubgoal(wp, "approach_misty", f"Advance through Cerulean Gym towards Misty via {wp}")
