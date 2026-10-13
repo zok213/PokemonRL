@@ -49,6 +49,9 @@ class WorldGraphNavigator:
             58: "MtMoonB1F.json",
             60: "MtMoonB1F.json",
             61: "MtMoonB2F.json",
+            3: "CeruleanCity.json",
+            64: "CeruleanPokecenter.json",
+            65: "CeruleanGym.json",
         }
         for mid, fn in map_files.items():
             fpath = processed_dir / fn
@@ -90,7 +93,7 @@ class WorldGraphNavigator:
                 nc, nr = c + dc, r + dr
                 if 0 <= nc < w and 0 <= nr < h and (nc, nr) not in visited:
                     t = grid[nr][nc]
-                    if t != '#' and t != '!' and t != '~':
+                    if t not in ('#', '!', '~', 'W', 'C', 'P', '=', 'B'):
                         # Authentic Gen 1 ledge jumping constraints (directional one-way hopping)
                         code = ord(t)
                         if code == 0x2193 and dr != 1:  # Down ledge: only stepping down
@@ -372,9 +375,9 @@ class WorldGraphNavigator:
             else:
                 return MapSubgoal((16, 8), "exit_museum", "Step outside back to Pewter City", is_warp=True)
 
-        # Pewter Pokécenter (Map 58) & Mt. Moon Pokécenter (Map 68)
-        elif map_id in (58, 68):
-            if hp < max_hp:
+        # Pokécenters: Viridian (41), Pewter (58), Mt. Moon (68), Cerulean (64)
+        elif map_id in (41, 58, 64, 68):
+            if hp < max_hp or hp == 0:
                 if y > 3:
                     return MapSubgoal((3, 3), "approach_nurse_joy", "Approach Nurse Joy counter to heal")
                 return MapSubgoal((3, 2), "interact_nurse_joy", "Speak with Nurse Joy to heal party")
@@ -451,7 +454,41 @@ class WorldGraphNavigator:
 
         # 16. Cerulean City (Map 3)
         elif map_id == 3:
-            return MapSubgoal((x, y), "reached_cerulean_city", "Destination reached: Cerulean City!")
+            # If lead mon or party needs healing before Cascade Badge, heal at Cerulean Pokécenter at (19, 17)
+            if (badges & 2) == 0:  # Cascade Badge not yet acquired
+                if hp < max_hp or hp == 0:
+                    if (x, y) in ((19, 18), (19, 17)):
+                        return MapSubgoal((19, 17), "enter_cerulean_pokecenter", "Step north through door into Cerulean Pokécenter", is_warp=True)
+                    else:
+                        wp = self._bfs_next_waypoint(3, (x, y), (19, 18), lookahead=2)
+                        return MapSubgoal(wp, "approach_pokecenter", f"Advance towards Pokécenter entrance via {wp}")
+                else:
+                    # Party is fully healed! Target: Cerulean Gym at (30, 19)
+                    if (x, y) in ((30, 20), (30, 19)):
+                        return MapSubgoal((30, 19), "enter_cerulean_gym", "Enter Cerulean Gym to challenge Gym Leader Misty", is_warp=True)
+                    else:
+                        wp = self._bfs_next_waypoint(3, (x, y), (30, 20), lookahead=2)
+                        return MapSubgoal(wp, "approach_cerulean_gym", f"Advance towards Cerulean Gym entrance via {wp}")
+            else:
+                # Cascade Badge acquired!
+                return MapSubgoal((x, y), "cascade_badge_achieved", "Cascade Badge Acquired!")
+
+        # 18. Cerulean Gym (Map 65)
+        elif map_id == 65:
+            if (badges & 2) == 0:
+                if (x, y) == (4, 3):
+                    return MapSubgoal((4, 2), "challenge_misty", "Step up to Gym Leader Misty to battle for Cascade Badge")
+                elif (x, y) == (5, 2):
+                    return MapSubgoal((4, 2), "challenge_misty_from_right", "Face west towards Gym Leader Misty to battle for Cascade Badge")
+                else:
+                    wp = self._bfs_next_waypoint(65, (x, y), (4, 3), lookahead=1)
+                    return MapSubgoal(wp, "approach_misty", f"Advance through Cerulean Gym towards Misty via {wp}")
+            else:
+                # Misty defeated, exit south through Gym doorway
+                if (x, y) in ((4, 13), (5, 13)):
+                    return MapSubgoal((4, 14), "step_outside_gym", "Step outside back into Cerulean City", is_warp=True)
+                wp = self._bfs_next_waypoint(65, (x, y), (4, 13), lookahead=1)
+                return MapSubgoal(wp, "exit_cerulean_gym", f"Walk south towards Cerulean Gym exit via {wp}")
 
         # 17. Viridian Poké Mart (Map 42)
         elif map_id == 42:

@@ -110,6 +110,9 @@ def main():
     saved_route3 = False
     saved_route4 = False
     saved_mt_moon = False
+    saved_cerulean = bool(args.state and "cerulean" in args.state)
+    saved_pokecenter_heal = False
+    saved_cascade_badge = False
 
     print("\n[+] Starting live policy execution loop...\n", flush=True)
 
@@ -201,7 +204,8 @@ def main():
                     "moves": moves
                 },
                 "opponent_species": opp_species,
-                "opponent_hp": opp_hp
+                "opponent_hp": opp_hp,
+                "opp_def_mod": env.read_m(0xCD2F) if in_battle else 7
             }
 
             # Read real-time collision matrix from PyBoy
@@ -279,16 +283,38 @@ def main():
                 with open(ckpt_file, "wb") as f:
                     env.pyboy.save_state(f)
 
-            if map_id == 3:
+            if map_id == 64 and hp_val == max_hp and hp_val > 0 and not saved_pokecenter_heal:
+                saved_pokecenter_heal = True
+                save_file = REPO_ROOT / "saves" / "cerulean_healed.state"
+                save_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(save_file, "wb") as f:
+                    env.pyboy.save_state(f)
+                print(f"\n[+] MILESTONE ACHIEVED: PARTY RESTORED AT CERULEAN POKÉCENTER! Saved: {save_file.name}\n", flush=True)
+
+            if map_id == 3 and not saved_cerulean:
+                saved_cerulean = True
                 save_file = REPO_ROOT / "saves" / "cerulean_city.state"
                 save_file.parent.mkdir(parents=True, exist_ok=True)
                 with open(save_file, "wb") as f:
                     env.pyboy.save_state(f)
                 print(
                     f"\n{'='*75}\n"
-                    f"  [+] MISSION ACCOMPLISHED: CERULEAN CITY REACHED AT STEP {step_count}!\n"
-                    f"  From Pallet Town -> Route 1 -> Viridian -> Route 2 -> Viridian Forest\n"
-                    f"  -> Pewter City -> Pewter Gym -> Route 3 -> Route 4 -> Mt. Moon -> Cerulean City!\n"
+                    f"  [+] MILESTONE ACHIEVED: CERULEAN CITY REACHED AT STEP {step_count}!\n"
+                    f"  Saved: {save_file.name}\n"
+                    f"{'='*75}\n",
+                    flush=True
+                )
+
+            if (badges & 2 != 0) and not saved_cascade_badge:
+                saved_cascade_badge = True
+                save_file = REPO_ROOT / "saves" / "cascade_badge.state"
+                save_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(save_file, "wb") as f:
+                    env.pyboy.save_state(f)
+                print(
+                    f"\n{'='*75}\n"
+                    f"  [+] MISSION ACCOMPLISHED: CASCADE BADGE ACQUIRED AT STEP {step_count}!\n"
+                    f"  Defeated Gym Leader Misty! Boulder Badge (Bit 0) + Cascade Badge (Bit 1) = 0x03!\n"
                     f"  Saved Final State: {save_file.name}\n"
                     f"{'='*75}\n",
                     flush=True

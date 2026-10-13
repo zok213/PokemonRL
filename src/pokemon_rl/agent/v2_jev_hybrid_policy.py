@@ -315,6 +315,22 @@ class BaselineV2JevSteeredPolicy:
                     idx, pp, m_id = item
                     if pp <= 0:
                         return -100
+                    # Cerulean Gym (Map 65): Opponents are Water-type (Goldeen, Horsea, Shellder, Staryu, Starmie)
+                    if map_id == 65:
+                        opp_species = snapshot.get("opponent_species", 0)
+                        opp_def_mod = snapshot.get("opp_def_mod", 7)
+                        # In Cerulean Gym: Use Tail Whip (39) to shred opponent's defense if not yet lowered!
+                        if opp_def_mod >= 6 and m_id == 39:
+                            return 120
+                        if m_id in (22, 72, 73, 85):  # Super-effective Grass / Electric
+                            return 150
+                        if m_id in (5, 44, 10, 33, 98, 64, 16, 21):  # Neutral Physical moves (Mega Punch, Bite, Tackle, Scratch)
+                            return 100
+                        if m_id in (145, 55):  # Resisted Water moves (Bubble, Water Gun)
+                            return 40
+                        if m_id in (39, 45, 43, 81, 106, 110):  # Status moves
+                            return 5
+                        return 20
                     # High-value damaging Special attacks (super effective against rock/ground and early gyms)
                     # 145 = Bubble (Water Special, 4x on Geodude/Onix/Diglett)
                     # 52  = Ember (Fire Special, destroys bug/grass)
@@ -438,8 +454,8 @@ class BaselineV2JevSteeredPolicy:
         # 2. Dialogue / Menu State: Advance Text with Button A / B and break loops
         if text_active:
             self.dialogue_steps += 1
-            # Inside Pokecenter (Map 58 or 68), Nurse Joy asks "Shall we heal your POKeMON?" -> Always select YES with Button A!
-            if map_id in (58, 68):
+            # Inside Pokecenter (Viridian 41, Pewter 58, Cerulean 64, Mt. Moon 68), Nurse Joy asks "Shall we heal your POKeMON?" -> Always select YES with Button A!
+            if map_id in (41, 58, 64, 68):
                 situation = f"Pokécenter Dialogue: Healing party with Nurse Joy (step {self.dialogue_steps}) -> Button A"
                 z_aff[ACTION_TO_IDX["a"]] += 5.0
                 z_aff[ACTION_TO_IDX["b"]] -= 3.0
@@ -506,10 +522,37 @@ class BaselineV2JevSteeredPolicy:
 
         # Direct NPC interaction for Gym Leader challenge
         if subgoal_obj.goal_name == "interact_brock":
-            z_aff[ACTION_TO_IDX["up"]] += 2.0
-            z_aff[ACTION_TO_IDX["a"]] += 5.0
-            situation = f"Pewter Gym: Standing before Gym Leader Brock -> Challenge with Button A"
-            return z_aff, situation, 2.5
+            player_dir = snapshot.get("player_dir", 0)
+            if player_dir == 4:  # facing up
+                z_aff[ACTION_TO_IDX["a"]] += 6.0
+                situation = "Pewter Gym: Facing Brock -> Challenge with Button A"
+                return z_aff, situation, 2.8
+            else:
+                z_aff[ACTION_TO_IDX["up"]] += 6.0
+                situation = "Pewter Gym: Below Brock -> Turn UP to face Brock"
+                return z_aff, situation, 2.8
+
+        if subgoal_obj.goal_name in ("interact_misty", "challenge_misty"):
+            player_dir = snapshot.get("player_dir", 0)
+            if player_dir == 4:  # facing up
+                z_aff[ACTION_TO_IDX["a"]] += 6.0
+                situation = "Cerulean Gym: Facing Misty from (4, 3) -> Challenge with Button A"
+                return z_aff, situation, 2.8
+            else:
+                z_aff[ACTION_TO_IDX["up"]] += 6.0
+                situation = "Cerulean Gym: At (4, 3) below Misty -> Turn UP to face Misty"
+                return z_aff, situation, 2.8
+
+        if subgoal_obj.goal_name == "challenge_misty_from_right":
+            player_dir = snapshot.get("player_dir", 0)
+            if player_dir == 8:  # facing left
+                z_aff[ACTION_TO_IDX["a"]] += 6.0
+                situation = "Cerulean Gym: Facing Misty from (5, 2) -> Challenge with Button A"
+                return z_aff, situation, 2.8
+            else:
+                z_aff[ACTION_TO_IDX["left"]] += 6.0
+                situation = "Cerulean Gym: At (5, 2) right of Misty -> Turn LEFT to face Misty"
+                return z_aff, situation, 2.8
 
         # Direct NPC interaction for Nurse Joy healing
         if subgoal_obj.goal_name == "interact_nurse_joy":

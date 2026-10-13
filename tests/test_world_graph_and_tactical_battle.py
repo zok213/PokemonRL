@@ -247,6 +247,58 @@ def test_world_graph_pewter_city_and_gym():
     assert sg_b2f.target_coord == (29, 27)
 
 
+def test_world_graph_cerulean_city_and_gym():
+    nav = WorldGraphNavigator()
+
+    # 1. Cerulean City entry with fainted lead mon -> route to Pokecenter entrance
+    sg_cc_heal = nav.get_subgoal(3, 0, 18, badges=1, hp=0, max_hp=55)
+    assert sg_cc_heal.goal_name in ("approach_pokecenter", "cerulean_road_east")
+
+    # 2. In front of Pokecenter door -> warp enter
+    sg_cc_enter = nav.get_subgoal(3, 19, 18, badges=1, hp=0, max_hp=55)
+    assert sg_cc_enter.goal_name == "enter_cerulean_pokecenter"
+    assert sg_cc_enter.target_coord == (19, 17)
+    assert sg_cc_enter.is_warp is True
+
+    # 3. Inside Cerulean Pokecenter with low HP -> approach & speak to Nurse Joy
+    sg_pk_joy = nav.get_subgoal(64, 3, 5, badges=1, hp=0, max_hp=55)
+    assert sg_pk_joy.goal_name == "approach_nurse_joy"
+    assert sg_pk_joy.target_coord == (3, 3)
+
+    sg_pk_talk = nav.get_subgoal(64, 3, 3, badges=1, hp=0, max_hp=55)
+    assert sg_pk_talk.goal_name == "interact_nurse_joy"
+    assert sg_pk_talk.target_coord == (3, 2)
+
+    # 4. Inside Cerulean Pokecenter fully healed -> exit south
+    sg_pk_exit = nav.get_subgoal(64, 3, 3, badges=1, hp=55, max_hp=55)
+    assert sg_pk_exit.goal_name == "exit_pokecenter"
+    assert sg_pk_exit.target_coord == (3, 7)
+
+    # 5. Outside Pokecenter fully healed -> route to Cerulean Gym
+    sg_to_gym = nav.get_subgoal(3, 19, 18, badges=1, hp=55, max_hp=55)
+    assert sg_to_gym.goal_name == "approach_cerulean_gym"
+
+    # 6. In front of Cerulean Gym door -> enter Gym
+    sg_enter_gym = nav.get_subgoal(3, 30, 20, badges=1, hp=55, max_hp=55)
+    assert sg_enter_gym.goal_name == "enter_cerulean_gym"
+    assert sg_enter_gym.target_coord == (30, 19)
+    assert sg_enter_gym.is_warp is True
+
+    # 7. Inside Cerulean Gym -> approach Misty avoiding pool
+    sg_gym_approach = nav.get_subgoal(65, 4, 13, badges=1, hp=55, max_hp=55)
+    assert sg_gym_approach.goal_name == "approach_misty"
+
+    # 8. In front of Misty -> challenge Misty
+    sg_misty = nav.get_subgoal(65, 4, 3, badges=1, hp=55, max_hp=55)
+    assert sg_misty.goal_name == "challenge_misty"
+    assert sg_misty.target_coord == (4, 2)
+
+    # 9. After defeating Misty (Cascade Badge acquired, badges=3) -> exit Gym
+    sg_exit_gym = nav.get_subgoal(65, 4, 5, badges=3, hp=55, max_hp=55)
+    assert sg_exit_gym.goal_name == "exit_cerulean_gym"
+
+
+
 # =============================================================================
 # 3. LOCAL AFFORDANCE POLICY PERSISTENCE & INFERENCE REPRODUCIBILITY
 # =============================================================================
