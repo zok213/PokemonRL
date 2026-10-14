@@ -72,10 +72,12 @@ class BaselineV2JevSteeredPolicy:
         self,
         checkpoint_path: Optional[str] = None,
         device: str = "cpu",
-        default_alpha: float = 1.2
+        default_alpha: float = 1.2,
+        grpo_controller: Optional[Any] = None,
     ):
         self.device = device
         self.default_alpha = default_alpha
+        self.grpo_controller = grpo_controller
 
         # Resolve checkpoint
         if checkpoint_path is None:
@@ -642,6 +644,23 @@ class BaselineV2JevSteeredPolicy:
         if self.stuck_counter >= 2:
             alpha = min(3.5, self.default_alpha + self.stuck_counter * 0.5)
             situation += f" [Anti-Stagnation Active: Stalled {self.stuck_counter} steps, alpha={alpha:.1f}]"
+
+        # Learned Steering Gain via GRPO
+        if self.grpo_controller is not None:
+            try:
+                learned_alpha = self.grpo_controller.get_steering_gain({
+                    "dx_goal": tg_x - x if 'tg_x' in locals() else 0.0,
+                    "dy_goal": tg_y - y if 'tg_y' in locals() else 0.0,
+                    "stagnation_count": self.stuck_counter,
+                    "action_entropy": 0.5,
+                    "in_battle": in_battle,
+                    "is_warp": subgoal_obj.is_warp if 'subgoal_obj' in locals() else False,
+                    "is_interaction": subgoal_obj.is_interaction if 'subgoal_obj' in locals() else False,
+                })
+                alpha = learned_alpha
+                situation += f" [GRPO Learned Alpha: {alpha:.2f}]"
+            except Exception:
+                pass
 
         return z_aff, situation, alpha
 

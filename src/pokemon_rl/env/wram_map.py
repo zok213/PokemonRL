@@ -171,6 +171,34 @@ class RAMMap:
     ENEMY_SPECIES    = 0xCFCA  # wEnemyMon1Species — opponent Pokémon species ID
 
     # =========================================================================
+    # INVENTORY & KEY ITEMS
+    # =========================================================================
+    NUM_BAG_ITEMS    = 0xD31D  # wNumBagItems — Number of items currently in bag (0–20)
+    BAG_ITEMS_START  = 0xD31E  # wBagItems    — List of (item_id, quantity) pairs (up to 20 items + 0xFF terminator)
+
+    # Authentic Gen 1 Key Item IDs (pret/pokered constants/item_constants.asm)
+    ITEM_BICYCLE       = 0x06  # Bicycle
+    ITEM_DOME_FOSSIL   = 0x29  # Dome Fossil (Kabuto)
+    ITEM_HELIX_FOSSIL  = 0x2A  # Helix Fossil (Omanyte)
+    ITEM_SECRET_KEY    = 0x2B  # Secret Key (Cinnabar Gym door)
+    ITEM_BIKE_VOUCHER  = 0x2D  # Bike Voucher (Vermilion Fan Club)
+    ITEM_CARD_KEY      = 0x30  # Card Key (Silph Co. electronic doors)
+    ITEM_S_S_TICKET    = 0x3F  # S.S. Ticket (S.S. Anne entry)
+    ITEM_GOLD_TEETH    = 0x40  # Gold Teeth (Safari Warden -> HM04 Strength)
+    ITEM_COIN_CASE     = 0x45  # Coin Case (Rocket Game Corner)
+    ITEM_OAKS_PARCEL   = 0x46  # Oak's Parcel (Viridian Mart -> Oak)
+    ITEM_SILPH_SCOPE   = 0x48  # Silph Scope (Identifies Pokémon Tower Ghosts)
+    ITEM_POKE_FLUTE    = 0x49  # Poké Flute (Awakens sleeping Snorlax)
+    ITEM_LIFT_KEY      = 0x4A  # Lift Key (Rocket Hideout Elevator)
+
+    # Authentic Gen 1 Hidden Machines (HMs)
+    ITEM_HM01_CUT      = 0xC4  # HM01 Cut
+    ITEM_HM02_FLY      = 0xC5  # HM02 Fly
+    ITEM_HM03_SURF     = 0xC6  # HM03 Surf
+    ITEM_HM04_STRENGTH = 0xC7  # HM04 Strength
+    ITEM_HM05_FLASH    = 0xC8  # HM05 Flash
+
+    # =========================================================================
     # CONVENIENCE METHODS
     # =========================================================================
     @classmethod
@@ -196,3 +224,23 @@ class RAMMap:
     def read_joy_ignore(cls, wram_bytes: bytes) -> int:
         """Read hardware joypad suppression mask."""
         return wram_bytes[cls.JOY_IGNORE - 0xC000]
+
+    @classmethod
+    def read_bag_items(cls, wram_bytes: bytes) -> list[tuple[int, int]]:
+        """Read list of (item_id, quantity) currently in player bag."""
+        num_items = wram_bytes[cls.NUM_BAG_ITEMS - 0xC000]
+        items: list[tuple[int, int]] = []
+        base_off = cls.BAG_ITEMS_START - 0xC000
+        for i in range(min(20, int(num_items))):
+            item_id = wram_bytes[base_off + i * 2]
+            if item_id == 0xFF:
+                break
+            qty = wram_bytes[base_off + i * 2 + 1]
+            items.append((item_id, qty))
+        return items
+
+    @classmethod
+    def has_item(cls, wram_bytes: bytes, item_id: int) -> bool:
+        """Check whether the player currently holds a specific item in the bag."""
+        items = cls.read_bag_items(wram_bytes)
+        return any(item[0] == item_id for item in items)
