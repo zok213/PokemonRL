@@ -706,11 +706,37 @@ class WorldGraphNavigator:
             else:
                 return MapSubgoal((10, -1), "north_to_saffron", "Advance north towards Saffron City", is_warp=True)
 
+        elif map_id == 220:  # Safari Zone Center
+            wp = self._bfs_next_waypoint(220, (x, y), (29, 10), lookahead=2)
+            return MapSubgoal(wp, "safari_center_to_east", f"Navigate Safari Center towards Safari East pass via {wp}")
+
+        elif map_id == 217:  # Safari Zone East
+            wp = self._bfs_next_waypoint(217, (x, y), (8, 0), lookahead=2)
+            return MapSubgoal(wp, "safari_east_to_north", f"Navigate Safari East towards Safari North pass via {wp}")
+
+        elif map_id == 218:  # Safari Zone North
+            wp = self._bfs_next_waypoint(218, (x, y), (0, 10), lookahead=2)
+            return MapSubgoal(wp, "safari_north_to_west", f"Navigate Safari North towards Safari West pass via {wp}")
+
         elif map_id == 219:  # Safari Zone West
-            return MapSubgoal((19, 7), "claim_gold_teeth", "Pick up Gold Teeth on ground", is_interaction=True)
+            if RAMMap.ITEM_GOLD_TEETH not in bag_items:
+                if (x, y) in ((19, 7), (19, 6), (19, 8), (18, 7), (20, 7)):
+                    return MapSubgoal((19, 7), "claim_gold_teeth", "Pick up Gold Teeth on ground", is_interaction=True)
+                wp = self._bfs_next_waypoint(219, (x, y), (19, 7), lookahead=2)
+                return MapSubgoal(wp, "approach_gold_teeth", f"Navigate towards Gold Teeth via {wp}")
+            elif RAMMap.ITEM_HM03_SURF not in bag_items:
+                if (x, y) in ((3, 3), (3, 4)):
+                    return MapSubgoal((3, 3), "enter_safari_secret_house", "Enter Secret House to claim HM03 Surf", is_warp=True)
+                wp = self._bfs_next_waypoint(219, (x, y), (3, 3), lookahead=2)
+                return MapSubgoal(wp, "approach_secret_house", f"Navigate towards Secret House via {wp}")
+            else:
+                wp = self._bfs_next_waypoint(219, (x, y), (29, 10), lookahead=2)
+                return MapSubgoal(wp, "safari_west_exit_pass", f"Return east towards Safari entrance via {wp}")
 
         elif map_id == 222:  # Safari Zone Secret House
-            return MapSubgoal((3, 3), "claim_hm03_surf", "Speak with Secret House patron to receive HM03 Surf", is_interaction=True)
+            if RAMMap.ITEM_HM03_SURF not in bag_items:
+                return MapSubgoal((3, 3), "claim_hm03_surf", "Speak with Secret House patron to receive HM03 Surf", is_interaction=True)
+            return MapSubgoal((3, 8), "exit_secret_house", "Step outside back into Safari Zone West", is_warp=True)
 
         elif map_id == 155:  # Warden's House
             return MapSubgoal((2, 3), "deliver_gold_teeth", "Deliver Gold Teeth to Warden to receive HM04 Strength", is_interaction=True)

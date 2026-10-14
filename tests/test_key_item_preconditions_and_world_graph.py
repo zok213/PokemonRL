@@ -181,7 +181,7 @@ def test_world_graph_badge5_pokemon_tower_and_fuchsia(nav):
     assert sg_snorlax.is_interaction is True
 
     # Safari Zone West -> Gold Teeth
-    sg_teeth = nav.get_subgoal(219, 10, 10, badges=15)
+    sg_teeth = nav.get_subgoal(219, 19, 7, badges=15)
     assert sg_teeth.goal_name == "claim_gold_teeth"
 
     # Safari Zone Secret House -> Surf
@@ -274,3 +274,49 @@ def test_world_graph_pokemon_league_and_indigo_plateau(nav):
     sg_hof = nav.get_subgoal(118, 2, 3, badges=0xFF)
     assert sg_hof.goal_name == "champion_hall_of_fame"
     assert sg_hof.is_interaction is True
+
+
+def test_safari_zone_shortest_path_geodesics(nav):
+    # Safari Center -> East pass
+    sg_cen = nav.get_subgoal(220, 14, 25, badges=15)
+    assert sg_cen.goal_name == "safari_center_to_east"
+
+    # Safari East -> North pass
+    sg_east = nav.get_subgoal(217, 0, 10, badges=15)
+    assert sg_east.goal_name == "safari_east_to_north"
+
+    # Safari North -> West pass
+    sg_north = nav.get_subgoal(218, 8, 25, badges=15)
+    assert sg_north.goal_name == "safari_north_to_west"
+
+    # Safari West without Gold Teeth -> approach gold teeth
+    sg_west = nav.get_subgoal(219, 29, 10, badges=15, bag=[])
+    assert "gold_teeth" in sg_west.goal_name
+
+    # Safari West with Gold Teeth -> approach secret house
+    sg_west_surf = nav.get_subgoal(219, 29, 10, badges=15, bag=[RAMMap.ITEM_GOLD_TEETH])
+    assert "secret_house" in sg_west_surf.goal_name
+
+
+def test_macro_action_compiler_advanced_macros():
+    from pokemon_rl.agent.macro_action_compiler import MacroActionCompiler
+
+    # Teach HM sequence
+    teach_seq = MacroActionCompiler.compile_teach_hm(hm_bag_slot=1, target_party_slot=0)
+    assert teach_seq[0] == "start"
+    assert "a" in teach_seq
+    assert len(teach_seq) > 6
+
+    # Forced switch
+    switch_seq = MacroActionCompiler.compile_forced_battle_switch(target_slot=2, cur_party_slot=0)
+    assert switch_seq == ["down", "down", "a", "a"]
+
+    # Field moves
+    assert MacroActionCompiler.compile_field_cut() == ["a", "a"]
+    assert MacroActionCompiler.compile_field_surf() == ["a", "a"]
+
+    # Option compilation
+    assert MacroActionCompiler.compile_option("cut_tree", {}) == ["a", "a"]
+    assert MacroActionCompiler.compile_option("surf_water", {}) == ["a", "a"]
+    assert MacroActionCompiler.compile_option("forced_switch_to_slot_1", {"party_menu_item": 0}) == ["down", "a", "a"]
+

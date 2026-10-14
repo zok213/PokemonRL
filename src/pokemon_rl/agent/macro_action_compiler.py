@@ -8,13 +8,14 @@ In Game Boy Gen 1, menus remember their cursor positions across frames:
   - Battle root menu (FIGHT / PKMN / ITEM / RUN) restores `wBattleAndStartSavedMenuItem`
   - Move selection list starts at `wPlayerMoveListIndex`
   - Party list restores `wPartyAndBillsPCSavedMenuItem`
+  - Start menu restores `wCurrentMenuItem`
 
 Therefore, button presses MUST be computed as dynamic deltas from current RAM cursor
 coordinates, never static paths from an assumed top-left corner.
 """
 
 from __future__ import annotations
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional
 
 
 ROOT_CELLS: Dict[str, Tuple[int, int]] = {
@@ -54,6 +55,67 @@ class MacroActionCompiler:
         return cls.walk_grid(current_cell, target_cell)
 
     @classmethod
+    def compile_teach_hm(
+        cls,
+        hm_bag_slot: int = 0,
+        target_party_slot: int = 0,
+        start_menu_cur: int = 0,
+        bag_cur: int = 0,
+        party_cur: int = 0,
+    ) -> List[str]:
+        """
+        Compiles the authentic Gen 1 Joypad sequence to teach an HM from the Bag to a party Pokémon:
+          1. Press START to open Start Menu
+          2. Navigate to ITEM (slot 1) and press A
+          3. Navigate in Bag to HM slot and press A
+          4. Select USE (cursor 0) with A
+          5. Navigate Party list to target Pokémon and press A
+          6. Confirm learning and clear message prompts with A / B
+          7. Close Start Menu with B
+        """
+        actions = ["start"]
+        # In Gen 1 Start Menu: 0: POKEDEX, 1: POKEMON, 2: ITEM, 3: TRAINER, 4: SAVE, 5: OPTION, 6: EXIT
+        actions += cls.walk_list(start_menu_cur, 2) + ["a"]
+        # In Bag: scroll to HM slot
+        actions += cls.walk_list(bag_cur, hm_bag_slot) + ["a"]
+        # USE is top item in item submenu
+        actions += ["a"]
+        # Select target Pokémon
+        actions += cls.walk_list(party_cur, target_party_slot) + ["a"]
+        # Confirm learning and dialogs
+        actions += ["a", "a", "a", "b", "b", "b"]
+        return actions
+
+    @classmethod
+    def compile_forced_battle_switch(
+        cls,
+        target_slot: int,
+        cur_party_slot: int = 0
+    ) -> List[str]:
+        """
+        When the active Pokémon faints in a trainer battle, Gen 1 forces the switch-in screen.
+        Navigates to the first healthy party slot and confirms deployment with Button A.
+        """
+        return cls.walk_list(cur_party_slot, target_slot) + ["a", "a"]
+
+    @classmethod
+    def compile_field_cut(cls) -> List[str]:
+        """
+        When standing adjacent and facing a Cut tree with a Pokémon knowing Cut:
+        Press Button A to trigger the prompt 'This tree can be CUT! Want to CUT it?',
+        then Button A again to confirm YES and cut down the tree.
+        """
+        return ["a", "a"]
+
+    @classmethod
+    def compile_field_surf(cls) -> List[str]:
+        """
+        When standing facing water with Soul Badge and a surfing Pokémon:
+        Press Button A to trigger 'The water is calm. Want to SURF?', then Button A to confirm.
+        """
+        return ["a", "a"]
+
+    @classmethod
     def compile_option(
         cls,
         option_id: str,
@@ -82,6 +144,21 @@ class MacroActionCompiler:
         # Overworld step
         if option_id.startswith("step_"):
             return [option_id[len("step_"):]]
+
+        # Field move execution
+        if option_id in ("cut_tree", "use_cut", "interact_cut"):
+            return cls.compile_field_cut()
+        if option_id in ("surf_water", "use_surf", "interact_surf"):
+            return cls.compile_field_surf()
+
+        # Teach HM macro
+        if option_id.startswith("teach_hm_"):
+            return cls.compile_teach_hm(hm_bag_slot=0, target_party_slot=0)
+
+        # Forced battle switch
+        if option_id.startswith("forced_switch_to_slot_"):
+            slot = int(option_id.split("_")[-1])
+            return cls.compile_forced_battle_switch(target_slot=slot, cur_party_slot=party_item)
 
         # In-battle: Run
         if option_id == "run_away":

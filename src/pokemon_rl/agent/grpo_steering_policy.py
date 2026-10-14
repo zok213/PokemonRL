@@ -231,3 +231,46 @@ class DecisionForkGRPO:
             "mean_advantage": float(torch.mean(advantages).item()),
             "advantage_std": float(torch.std(advantages).item()),
         }
+
+
+class OnlineGRPOTrainer:
+    """
+    Manages online continuous learning of the steering gain policy during live play.
+    Whenever the agent encounters stagnation (stuck >= 2 steps) or navigates decision forks,
+    it records the (state_features, alpha, reward) and executes self-tuning GRPO policy updates.
+    """
+
+    def __init__(self, grpo_controller: DecisionForkGRPO, update_frequency: int = 8):
+        self.grpo = grpo_controller
+        self.update_frequency = update_frequency
+        self.buffer: List[Tuple[torch.Tensor, torch.Tensor, float]] = []
+        self.step_counter = 0
+
+    def record_transition(self, state_dict: Dict[str, Any], alpha: float, reward: float):
+        """Records a single live step for online GRPO group aggregation."""
+        feat = self.grpo.extract_features(state_dict)
+        alpha_t = torch.tensor([[alpha]], dtype=torch.float32)
+        self.buffer.append((feat, alpha_t, float(reward)))
+        self.step_counter += 1
+
+    def maybe_train_step(self) -> Optional[Dict[str, float]]:
+        """
+        If buffer has accumulated at least G=group_size transitions, constructs
+        a sibling group and performs a GRPO policy optimization step.
+        """
+        if len(self.buffer) < self.grpo.group_size:
+            return None
+
+        batch = self.buffer[-self.grpo.group_size:]
+        feats = torch.cat([item[0] for item in batch], dim=0)
+        context_feat = torch.mean(feats, dim=0, keepdim=True)
+        alphas = torch.cat([item[1] for item in batch], dim=0)
+        rewards = [item[2] for item in batch]
+
+        repeated_feat = context_feat.repeat(self.grpo.group_size, 1)
+        with torch.no_grad():
+            log_probs_old = self.grpo.old_policy.get_log_prob(repeated_feat, alphas)
+
+        metrics = self.grpo.update_policy(context_feat, alphas, log_probs_old, rewards)
+        self.buffer = self.buffer[-self.grpo.group_size:]
+        return metrics

@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 import torch
 
-from pokemon_rl.agent.grpo_steering_policy import SteeringGainNetwork, DecisionForkGRPO
+from pokemon_rl.agent.grpo_steering_policy import SteeringGainNetwork, DecisionForkGRPO, OnlineGRPOTrainer
 from pokemon_rl.agent.v2_jev_hybrid_policy import BaselineV2JevSteeredPolicy
 from pokemon_rl.env.poke_jax_bridge import SharedMemoryVectorBuffer, PokeJAXVectorBridge, VectorBridgeVerifier
 
@@ -108,6 +108,27 @@ def test_grpo_integration_with_v2_jev_policy():
     assert decision.action_idx in range(len(policy.combat_controller.GEN1_MOVES_MAP) if False else 7)
     assert "GRPO Learned Alpha" in decision.affordance_situation
     assert 1.0 <= decision.steering_weight <= 4.0
+
+
+def test_online_grpo_trainer():
+    grpo = DecisionForkGRPO(group_size=8, learning_rate=1e-3)
+    trainer = OnlineGRPOTrainer(grpo, update_frequency=8)
+
+    # Record 7 transitions -> not enough for update
+    for i in range(7):
+        state = {"dx_goal": float(i), "dy_goal": 2.0, "stagnation_count": i % 3}
+        trainer.record_transition(state, alpha=2.0, reward=0.5 * i)
+
+    metrics = trainer.maybe_train_step()
+    assert metrics is None
+
+    # Record 8th transition -> triggers update
+    state = {"dx_goal": 7.0, "dy_goal": 2.0, "stagnation_count": 1}
+    trainer.record_transition(state, alpha=2.5, reward=3.5)
+    metrics = trainer.maybe_train_step()
+    assert metrics is not None
+    assert "loss_total" in metrics
+    assert not math.isnan(metrics["loss_total"])
 
 
 # =============================================================================
