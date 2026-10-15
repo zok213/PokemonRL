@@ -175,7 +175,7 @@ class RAMMap:
     NUM_PARTY_MONS   = PARTY_COUNT
     PARTY_HP_BASE    = 0xD16C  # wPartyMon1HP — first party member current HP (2 bytes)
     PARTY_MAX_HP_BASE= 0xD18D  # wPartyMon1MaxHP (2 bytes)
-    ENEMY_SPECIES    = 0xCFCA  # wEnemyMon1Species — opponent Pokémon species ID
+    ENEMY_SPECIES    = 0xCFE5  # wEnemyMonSpecies — opponent Pokémon species ID in battle (pokered.sym: 00:cfe5)
 
     # =========================================================================
     # INVENTORY & KEY ITEMS

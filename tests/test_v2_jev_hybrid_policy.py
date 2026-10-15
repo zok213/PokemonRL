@@ -181,7 +181,7 @@ def test_v2_hybrid_policy_move_selection_navigation():
         "in_battle": True,
         "battle_type": 2,
         "battle_menu_y": 7,  # Move selection menu (wTopMenuItemY == 7)
-        "battle_cur_item": 3,  # Cursor aligned on Move 3 (Ember=52, 1-based item 3)
+        "battle_cur_item": 2,  # Cursor aligned on Move 3 (Ember=52, 0-based index 2)
         "move_pps": [35, 40, 25, 30],
         "active_mon": {"hp": 40, "max_hp": 40, "level": 15, "moves": [10, 45, 52, 43]}
     }
@@ -201,7 +201,7 @@ def test_v2_hybrid_policy_depleted_pp_move_navigation():
         "in_battle": True,
         "battle_type": 2,
         "battle_menu_y": 7,  # Move selection menu (wTopMenuItemY == 7)
-        "battle_cur_item": 1,  # Cursor on Move 1 (1-based item 1)
+        "battle_cur_item": 0,  # Cursor on Move 1 (0-based index 0)
         "move_pps": [0, 40, 25, 30],  # Move 1 has 0 PP, Move 3 (Ember=52) has 25 PP
         "active_mon": {"hp": 25, "max_hp": 40, "level": 15, "moves": [10, 45, 52, 43]}
     }
@@ -210,8 +210,8 @@ def test_v2_hybrid_policy_depleted_pp_move_navigation():
     assert "Move DOWN" in d.affordance_situation and "Move 3" in d.affordance_situation
     assert d.steered_probs["DOWN"] > 0.85
 
-    # When cursor reaches Move 3 (1-based item 3), it presses A
-    snap["battle_cur_item"] = 3
+    # When cursor reaches Move 3 (0-based index 2), it presses A
+    snap["battle_cur_item"] = 2
     d_aligned = policy.decide(snap, obs=None)
     assert d_aligned.action_name == "A"
     assert "attack with Button A" in d_aligned.affordance_situation
@@ -248,7 +248,7 @@ def test_v2_hybrid_policy_bubble_move_priority():
         "in_battle": True,
         "battle_type": 2,
         "battle_menu_y": 7,  # In move selection menu
-        "battle_cur_item": 1,  # Cursor on Move 1 (Tackle, 1-based item 1)
+        "battle_cur_item": 0,  # Cursor on Move 1 (Tackle, 0-based index 0)
         "move_pps": [35, 30, 30, 0],
         "active_mon": {"hp": 28, "max_hp": 28, "level": 9, "moves": [33, 39, 145, 0]}
     }
@@ -258,8 +258,8 @@ def test_v2_hybrid_policy_bubble_move_priority():
     assert "Selecting Move 3" in d.affordance_situation
     assert d.steered_probs["DOWN"] > 0.85
 
-    # Once cursor reaches Move 3 (1-based item 3), should press Button A to unleash Bubble
-    snap["battle_cur_item"] = 3
+    # Once cursor reaches Move 3 (0-based index 2), should press Button A to unleash Bubble
+    snap["battle_cur_item"] = 2
     d2 = policy.decide(snap, obs=None)
     assert d2.action_name == "A"
     assert "Executing attack with Button A" in d2.affordance_situation
