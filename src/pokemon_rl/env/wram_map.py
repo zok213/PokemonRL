@@ -83,6 +83,12 @@ class RAMMap:
     CUR_MAP     = 0xD35E   # wCurMap       — Current Map ID (0–247)
     X_POS       = 0xD362   # wXCoord       — Player X tile coordinate
     Y_POS       = 0xD361   # wYCoord       — Player Y tile coordinate
+    CURRENT_MAP = CUR_MAP
+    PLAYER_X    = X_POS
+    PLAYER_Y    = Y_POS
+    X_COORD     = X_POS
+    Y_COORD     = Y_POS
+    PLAYER_FACING = 0xC109  # wPlayerDirection (0=Down, 4=Up, 8=Left, 0xC=Right)
 
     # =========================================================================
     # PROGRESSION
@@ -166,6 +172,7 @@ class RAMMap:
     # PARTY / BATTLE STATE
     # =========================================================================
     PARTY_COUNT      = 0xD163  # wPartyCount — number of Pokémon in party (0–6)
+    NUM_PARTY_MONS   = PARTY_COUNT
     PARTY_HP_BASE    = 0xD16C  # wPartyMon1HP — first party member current HP (2 bytes)
     PARTY_MAX_HP_BASE= 0xD18D  # wPartyMon1MaxHP (2 bytes)
     ENEMY_SPECIES    = 0xCFCA  # wEnemyMon1Species — opponent Pokémon species ID

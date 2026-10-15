@@ -4,7 +4,11 @@ from pathlib import Path
 
 import numpy as np
 from skimage.transform import downscale_local_mean
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except Exception:
+    import unittest.mock
+    plt = unittest.mock.MagicMock()
 from pyboy import PyBoy
 #from pyboy.logger import log_level
 import mediapy as media

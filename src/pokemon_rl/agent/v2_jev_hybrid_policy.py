@@ -119,9 +119,8 @@ class BaselineV2JevSteeredPolicy:
         """Load pretrained Stable-Baselines3 PPO policy weights into CPU memory."""
         if self.checkpoint_path and self.checkpoint_path.exists():
             try:
-                # Protect against broken tensorflow installation in user roaming packages
-                import sys
-                sys.modules.setdefault("tensorflow", None)
+                import unittest.mock
+                sys.modules.setdefault("tensorboard.compat.notf", unittest.mock.MagicMock())
                 from stable_baselines3 import PPO
                 # Use custom_objects to prevent Windows PosixPath deserialization errors
                 self.v2_model = PPO.load(
@@ -133,6 +132,10 @@ class BaselineV2JevSteeredPolicy:
             except Exception as e:
                 print(f"[!] Warning: Could not load V2 PPO checkpoint: {e}")
                 self.v2_model = None
+            finally:
+                # Ensure None sentinel does not poison sys.modules for einops backend discovery
+                if "tensorflow" in sys.modules and sys.modules["tensorflow"] is None:
+                    del sys.modules["tensorflow"]
         else:
             print("[!] Warning: Baseline V2 checkpoint not found; running in pure affordance mode.")
 

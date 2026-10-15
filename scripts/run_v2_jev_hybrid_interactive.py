@@ -27,6 +27,18 @@ if str(REPO_ROOT / "src") not in sys.path:
 if str(V2_DIR) not in sys.path:
     sys.path.insert(0, str(V2_DIR))
 
+# Suppress broken user-roaming C-extensions under NumPy 2.x
+import unittest.mock
+import numpy as _np
+if int(_np.__version__.split(".")[0]) >= 2:
+    sys.modules["matplotlib"] = unittest.mock.MagicMock()
+    sys.modules["matplotlib.pyplot"] = unittest.mock.MagicMock()
+    sys.modules["tensorboard.compat.notf"] = unittest.mock.MagicMock()
+
+# Clean up None sentinel in sys.modules for tensorflow (prevents einops backend lookup crash)
+if "tensorflow" in sys.modules and sys.modules["tensorflow"] is None:
+    del sys.modules["tensorflow"]
+
 from red_gym_env_v2 import RedGymEnv
 from pokemon_rl.agent.v2_jev_hybrid_policy import BaselineV2JevSteeredPolicy, ACTION_NAMES
 from pokemon_rl.agent.grpo_steering_policy import DecisionForkGRPO, OnlineGRPOTrainer
