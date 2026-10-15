@@ -380,35 +380,30 @@ class WorldGraphNavigator:
                     else:
                         wp = self._bfs_next_waypoint(2, (x, y), (13, 26), lookahead=1)
                         return MapSubgoal(wp, "approach_pokecenter", f"Approach Pewter Pokecenter entrance via {wp}")
-                if (x, y) in ((16, 18), (16, 17)):
+                if (x, y) == (16, 18):
                     return MapSubgoal((16, 17), "enter_pewter_gym", "Enter Pewter Gym to challenge Gym Leader Brock", is_warp=True)
-                elif y < 14 and x > 18:
-                    return MapSubgoal((18, y), "channel_west_to_avenue", "Cut west towards main avenue")
+                elif (x, y) == (16, 17):
+                    return MapSubgoal((16, 16), "enter_pewter_gym", "Step north through Gym doors", is_warp=True)
                 else:
-                    return MapSubgoal((16, 18), "advance_pewter_gym_entrance", "Advance towards Pewter Gym entrance sidewalk at (16, 18)")
+                    wp = self._bfs_next_waypoint(2, (x, y), (16, 18), lookahead=1)
+                    return MapSubgoal(wp, "advance_pewter_gym_entrance", f"Advance towards Pewter Gym entrance via {wp}")
             else:
-                if x < 31 and y > 8:
-                    if x > 7:
-                        return MapSubgoal((7, y), "exit_gym_enclosure_west", "Walk west out of enclosure")
-                    return MapSubgoal((7, 8), "pewter_avenue_north", "Walk north along western avenue to northern crossway")
-                elif y <= 10 and x < 32:
-                    return MapSubgoal((32, 8), "pewter_crossway_east", "Walk east along clear northern crossway")
-                elif x >= 31 and y < 17:
-                    return MapSubgoal((32, 17), "pewter_exit_channel_south", "Walk south down eastern channel towards Route 3 pass")
-                return MapSubgoal((40, 17), "east_to_route3", "Advance east onto Route 3 towards Mt. Moon")
+                if x >= 39:
+                    return MapSubgoal((40, 17), "east_to_route3", "Advance east onto Route 3 towards Mt. Moon", is_warp=True)
+                wp = self._bfs_next_waypoint(2, (x, y), (39, 17), lookahead=1)
+                return MapSubgoal(wp, "east_to_route3", f"Advance east towards Route 3 pass via {wp}")
 
         elif map_id == 54:  # Pewter Gym (Brock)
             if (badges & RAMMap.BADGE_BOULDER) == 0:
-                if y > 3:
-                    return MapSubgoal((4, 3), "challenge_brock", "Challenge Brock for Boulder Badge")
-                elif y == 3:
-                    return MapSubgoal((4, 2), "challenge_brock", "Step up to Gym Leader Brock to battle for Boulder Badge")
-                else:
+                if (x, y) == (4, 2):
                     return MapSubgoal((4, 1), "interact_brock", "Speak with Brock to initiate battle for Boulder Badge", is_interaction=True)
+                wp = self._bfs_next_waypoint(54, (x, y), (4, 2), lookahead=1)
+                return MapSubgoal(wp, "challenge_brock", f"Advance north towards Gym Leader Brock via {wp}")
             else:
-                if y < 13:
-                    return MapSubgoal((4, 13), "exit_pewter_gym", "Walk south towards Pewter Gym exit")
-                return MapSubgoal((4, 14), "step_outside_gym", "Step outside back into Pewter City", is_warp=True)
+                if y >= 13:
+                    return MapSubgoal((4, 14), "step_outside_gym", "Step outside back into Pewter City", is_warp=True)
+                wp = self._bfs_next_waypoint(54, (x, y), (4, 13), lookahead=1)
+                return MapSubgoal(wp, "exit_pewter_gym", f"Walk south towards Pewter Gym exit via {wp}")
 
         elif map_id == 55:
             if y < 7:
@@ -458,7 +453,7 @@ class WorldGraphNavigator:
                 wp = self._bfs_next_waypoint(15, (x, y), (89, 10), lookahead=1)
                 return MapSubgoal(wp, "route4_east_highway", f"Advance east across Route 4 towards Cerulean City via {wp}")
 
-        elif map_id in (57, 59):  # Mt. Moon 1F
+        elif map_id == 59:  # Mt. Moon 1F
             if (x, y) == (14, 35):
                 return MapSubgoal((14, 25), "mt_moon_1f_corridor_north", "Advance north along entry corridor")
             if (x, y) == (5, 5):
@@ -466,7 +461,7 @@ class WorldGraphNavigator:
             wp = self._bfs_next_waypoint(59, (x, y), (5, 5), lookahead=1)
             return MapSubgoal(wp, "mt_moon_1f_ladder_north", "Advance through Mt. Moon 1F towards ladder", is_warp=(wp == (5, 5)))
 
-        elif map_id == 60 or (map_id == 58 and y > 8):  # Mt. Moon B1F
+        elif map_id == 60:  # Mt. Moon B1F
             if x > 20 and y < 8:
                 if x >= 27:
                     return MapSubgoal((27, 3), "exit_to_route4", "Step through cave exit into Route 4 East", is_warp=True)

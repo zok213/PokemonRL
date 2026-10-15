@@ -196,40 +196,38 @@ def test_world_graph_viridian_forest_labyrinth():
 
 def test_world_graph_pewter_city_and_gym():
     nav = WorldGraphNavigator()
-    # Pewter City without badge -> Gym target
+    # Pewter City without badge -> Gym target via BFS waypoint
     sg_gym = nav.get_subgoal(2, 16, 25, badges=0)
     assert sg_gym.goal_name == "advance_pewter_gym_entrance"
-    assert sg_gym.target_coord == (16, 18)
+    assert sg_gym.target_coord == (16, 24)
+
+    # In front of Gym door -> warp enter
+    sg_door = nav.get_subgoal(2, 16, 18, badges=0)
+    assert sg_door.goal_name == "enter_pewter_gym"
+    assert sg_door.target_coord == (16, 17)
+    assert sg_door.is_warp is True
 
     # Pewter City with Boulder Badge exiting gym -> walk west out of enclosure
-    sg_r3_west = nav.get_subgoal(2, 16, 18, badges=1)
-    assert sg_r3_west.goal_name == "exit_gym_enclosure_west"
-    assert sg_r3_west.target_coord == (7, 18)
+    # Pewter City post-Brock: route to Route 3 via authentic ROM BFS
+    sg_r3_start = nav.get_subgoal(2, 16, 18, badges=1)
+    assert sg_r3_start.goal_name == "east_to_route3"
+    assert sg_r3_start.target_coord == (15, 18)
 
-    # Pewter City on western avenue -> walk north to crossway
-    sg_r3_north = nav.get_subgoal(2, 7, 14, badges=1)
-    assert sg_r3_north.goal_name == "pewter_avenue_north"
-    assert sg_r3_north.target_coord == (7, 8)
-
-    # Pewter City on northern crossway -> walk east to column 32
-    sg_r3_east = nav.get_subgoal(2, 20, 8, badges=1)
-    assert sg_r3_east.goal_name == "pewter_crossway_east"
-    assert sg_r3_east.target_coord == (32, 8)
-
-    # Pewter City on column 32 -> walk south to Y=17
-    sg_r3_south = nav.get_subgoal(2, 32, 10, badges=1)
-    assert sg_r3_south.goal_name == "pewter_exit_channel_south"
-    assert sg_r3_south.target_coord == (32, 17)
-
-    # Pewter City approaching border -> Route 3 target
-    sg_r3 = nav.get_subgoal(2, 32, 17, badges=1)
-    assert sg_r3.goal_name == "east_to_route3"
-    assert sg_r3.target_coord == (40, 17)
+    # Pewter City approaching border -> Route 3 warp target
+    sg_r3_border = nav.get_subgoal(2, 39, 17, badges=1)
+    assert sg_r3_border.goal_name == "east_to_route3"
+    assert sg_r3_border.target_coord == (40, 17)
+    assert sg_r3_border.is_warp is True
 
     # Inside Pewter Gym -> Brock target
     sg_brock = nav.get_subgoal(54, 4, 10)
     assert sg_brock.goal_name == "challenge_brock"
-    assert sg_brock.target_coord == (4, 3)
+    assert sg_brock.target_coord == (4, 9)
+
+    sg_brock_at_2 = nav.get_subgoal(54, 4, 2)
+    assert sg_brock_at_2.goal_name == "interact_brock"
+    assert sg_brock_at_2.target_coord == (4, 1)
+    assert sg_brock_at_2.is_interaction is True
 
     # Mt. Moon 1F entry and ladder subgoals
     sg_mm1f = nav.get_subgoal(59, 14, 35)
