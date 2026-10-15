@@ -103,7 +103,16 @@ class WorldGraphNavigator:
         WorldGraphNavigator._CACHED_MAP_GRIDS = grids
         self._map_grids = grids
 
-    def _bfs_next_waypoint(self, map_id: int, start: Tuple[int, int], goal: Tuple[int, int], lookahead: int = 3) -> Tuple[int, int]:
+    def _bfs_next_waypoint(
+        self,
+        map_id: int,
+        start: Tuple[int, int],
+        goal: Tuple[int, int],
+        lookahead: int = 1,
+        can_surf: bool = False,
+        can_cut: bool = False,
+        can_strength: bool = False,
+    ) -> Tuple[int, int]:
         if map_id not in self._map_grids or start == goal:
             return goal
         grid = self._map_grids[map_id]
@@ -118,19 +127,30 @@ class WorldGraphNavigator:
                 nc, nr = c + dc, r + dr
                 if 0 <= nc < w and 0 <= nr < h and (nc, nr) not in visited:
                     t = grid[nr][nc]
-                    if t not in ('#', '!', '~', 'W', 'C', 'P', '=', 'B'):
-                        # Authentic Gen 1 ledge jumping constraints (directional one-way hopping)
-                        code = ord(t)
-                        if code == 0x2193 and dr != 1:  # Down ledge: only stepping down
-                            continue
-                        if code == 0x2192 and dc != 1:  # Right ledge: only stepping right
-                            continue
-                        if code == 0x2190 and dc != -1: # Left ledge: only stepping left
-                            continue
-                        if code == 0x2191 and dr != -1: # Up ledge: only stepping up
-                            continue
-                        visited[(nc, nr)] = (c, r)
-                        q.append((nc, nr))
+                    # Authentic Gen 1 obstacle constraints:
+                    # '#' = Wall/Border, '!' = Solid sign/fence, '=' = Counter, 'B' = Bookcase
+                    # '~' = Tall Grass (100% WALKABLE - where wild battles occur)
+                    # 'W' = Water (walkable if surfing), 'C' = Cut tree, 'P' = Strength boulder
+                    if t in ('#', '!', '=', 'B'):
+                        continue
+                    if t == 'W' and not can_surf:
+                        continue
+                    if t == 'C' and not can_cut:
+                        continue
+                    if t == 'P' and not can_strength:
+                        continue
+                    # Authentic Gen 1 ledge jumping constraints (directional one-way hopping)
+                    code = ord(t)
+                    if code == 0x2193 and dr != 1:  # Down ledge: only stepping down
+                        continue
+                    if code == 0x2192 and dc != 1:  # Right ledge: only stepping right
+                        continue
+                    if code == 0x2190 and dc != -1: # Left ledge: only stepping left
+                        continue
+                    if code == 0x2191 and dr != -1: # Up ledge: only stepping up
+                        continue
+                    visited[(nc, nr)] = (c, r)
+                    q.append((nc, nr))
         if goal not in visited:
             return goal
         curr = goal
@@ -202,6 +222,12 @@ class WorldGraphNavigator:
         # 2. ROUTE 1 & VIRIDIAN CITY (Maps 12, 1, 41, 42, 43, 44, 45)
         # ---------------------------------------------------------------------
         elif map_id == 12:  # Route 1
+            if has_parcel and self.milestone == "oaks_parcel":
+                if y >= 35:
+                    return MapSubgoal((10, 36), "enter_pallet_town", "Step south into Pallet Town", is_warp=True)
+                wp = self._bfs_next_waypoint(12, (x, y), (10, 35), lookahead=1)
+                return MapSubgoal(wp, "return_south", f"Return south along Route 1 to Pallet Town via {wp}")
+
             if y > 28:
                 if x > 8:
                     return MapSubgoal((8, 28), "bypass_fence_west", "Bypass western fence on Route 1")
@@ -218,7 +244,10 @@ class WorldGraphNavigator:
                 return MapSubgoal((9, 18), "advance_clearing", "Advance north along central clearing")
             elif y == 18 and x < 14:
                 return MapSubgoal((14, 18), "bypass_highway_east", "Cut east to reach open highway to Viridian")
-            elif 2 < y <= 18 and x >= 14:
+            elif 2 < y <= 18:
+                if x < 14:
+                    wp = self._bfs_next_waypoint(12, (x, y), (14, 2), lookahead=1)
+                    return MapSubgoal(wp, "cut_highway_east", f"Cut east towards open Route 1 highway via {wp}")
                 return MapSubgoal((14, 2), "advance_highway", "Advance north along Route 1 highway")
             elif y <= 2:
                 if x > 10:
@@ -287,22 +316,18 @@ class WorldGraphNavigator:
         # 3. ROUTE 2 & VIRIDIAN FOREST (Maps 13, 50, 51, 47)
         # ---------------------------------------------------------------------
         elif map_id == 13:  # Route 2 South & North
-            if y > 57:
-                return MapSubgoal((3, 57), "bypass_south_fence", "Walk west to enter Route 2 western corridor")
-            elif 48 < y <= 57:
-                return MapSubgoal((3, 48), "advance_western_corridor", "Advance north towards jumping ledge")
-            elif y == 48 and x < 9:
-                return MapSubgoal((9, 48), "bypass_ledge_east", "Cut east along ledge to reach the opening at X=9")
-            elif 44 < y <= 48 and x >= 9:
-                return MapSubgoal((9, 44), "advance_past_ledge", "Advance north past the ledge opening")
-            elif y == 44 and x > 3:
-                return MapSubgoal((3, 44), "cut_west_to_gate", "Cut west towards the Viridian Forest South Gate")
-            elif y >= 43 and x <= 4:
-                return MapSubgoal((3, 43), "enter_south_gate", "Step into Viridian Forest South Gatehouse", is_warp=True)
+            if y > 43:
+                if (x, y) == (3, 44):
+                    return MapSubgoal((3, 43), "enter_south_gate", "Step into Viridian Forest South Gatehouse", is_warp=True)
+                wp = self._bfs_next_waypoint(13, (x, y), (3, 44), lookahead=1)
+                return MapSubgoal(wp, "advance_towards_gate", f"Advance towards South Gate via {wp}")
             elif y <= 33:
-                return MapSubgoal((3, 0), "north_to_pewter", "Advance north along Route 2 into Pewter City")
+                if y <= 0:
+                    return MapSubgoal((3, -1), "enter_pewter", "Step north into Pewter City", is_warp=True)
+                wp = self._bfs_next_waypoint(13, (x, y), (3, 0), lookahead=1)
+                return MapSubgoal(wp, "north_to_pewter", f"Advance north along Route 2 into Pewter City via {wp}")
             else:
-                return MapSubgoal((3, 43), "approach_gate", "Advance towards Viridian Forest Gate")
+                return MapSubgoal((3, 43), "enter_south_gate", "Step into Viridian Forest South Gatehouse", is_warp=True)
 
         elif map_id == 50:  # Viridian Forest South Gate
             if y > 0:
@@ -350,12 +375,11 @@ class WorldGraphNavigator:
                 if hp < max_hp:
                     if (x, y) == (13, 26):
                         return MapSubgoal((13, 25), "enter_pewter_pokecenter", "Step north through door into Pokécenter", is_warp=True)
-                    elif y < 24:
-                        if x > 14:
-                            return MapSubgoal((13, y), "channel_west_to_pokecenter", "Cut west towards Pokécenter avenue")
-                        return MapSubgoal((13, 26), "approach_pokecenter_south", "Advance south towards Pokécenter entrance")
+                    elif (x, y) == (13, 25):
+                        return MapSubgoal((13, 24), "enter_pewter_pokecenter", "Step north into Pokécenter interior", is_warp=True)
                     else:
-                        return MapSubgoal((13, 26), "approach_pokecenter", "Approach Pewter Pokecenter entrance at (13, 26)")
+                        wp = self._bfs_next_waypoint(2, (x, y), (13, 26), lookahead=1)
+                        return MapSubgoal(wp, "approach_pokecenter", f"Approach Pewter Pokecenter entrance via {wp}")
                 if (x, y) in ((16, 18), (16, 17)):
                     return MapSubgoal((16, 17), "enter_pewter_gym", "Enter Pewter Gym to challenge Gym Leader Brock", is_warp=True)
                 elif y < 14 and x > 18:

@@ -328,6 +328,8 @@ def test_persistent_model_weights_loaded():
     }
 
     state_t = harness.extract_state_tensor(snapshot, subgoal=(10, 2))
+    # Warm-up pass to initialize PyTorch JIT / CPU dispatcher
+    _ = policy.decide(state_t, options)
     decision = policy.decide(state_t, options)
 
     assert decision.selected_option == "advance"
