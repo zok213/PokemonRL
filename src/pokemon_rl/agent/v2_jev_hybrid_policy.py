@@ -353,7 +353,7 @@ class BaselineV2JevSteeredPolicy:
                     )
 
                 best_target = max(valid_moves, key=move_evaluator)[0]
-                target_menu_item = best_target  # In Gen 1 MoveSelectionMenu, wCurrentMenuItem is 0-based (0..3)
+                target_menu_item = best_target + 1  # In Gen 1 MoveSelectionMenu, wCurrentMenuItem is strictly 1-based (1..4)
                 if cur_item < target_menu_item:
                     z_aff[ACTION_TO_IDX["down"]] += 4.5
                     z_aff[ACTION_TO_IDX["a"]] -= 3.0
