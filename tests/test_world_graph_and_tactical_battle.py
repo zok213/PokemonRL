@@ -295,6 +295,106 @@ def test_world_graph_cerulean_city_and_gym():
     sg_exit_gym = nav.get_subgoal(65, 4, 5, badges=3, hp=55, max_hp=55)
     assert sg_exit_gym.goal_name == "exit_cerulean_gym"
 
+    # 10. In Cerulean City post-Misty with low HP (5/63) -> route to Pokecenter
+    sg_post_misty_heal = nav.get_subgoal(3, 30, 19, badges=3, hp=5, max_hp=63)
+    assert sg_post_misty_heal.goal_name == "approach_pokecenter"
+
+    # 11. In Cerulean City fully healed without SS Ticket -> route north to Route 24
+    sg_to_r24 = nav.get_subgoal(3, 19, 18, badges=3, hp=63, max_hp=63, has_ss_ticket=False)
+    assert sg_to_r24.goal_name == "north_to_route24"
+
+    # 12. At Cerulean northern border tile -> warp to Route 24
+    sg_r24_warp = nav.get_subgoal(3, 20, 0, badges=3, hp=63, max_hp=63, has_ss_ticket=False)
+    assert sg_r24_warp.goal_name == "enter_route24"
+    assert sg_r24_warp.is_warp is True
+
+    # 13. On Route 24 Nugget Bridge -> advance north
+    sg_bridge = nav.get_subgoal(35, 10, 30, badges=3, hp=63, max_hp=63, has_ss_ticket=False)
+    assert sg_bridge.goal_name == "route24_nugget_bridge"
+
+    # 14. On Route 25 towards Bill's House -> advance east
+    sg_r25 = nav.get_subgoal(36, 10, 8, badges=3, hp=63, max_hp=63, has_ss_ticket=False)
+    assert sg_r25.goal_name == "route25_advance_east"
+
+    # 15. In Bill's House -> Clefairy interaction, PC interaction, human Bill interaction
+    sg_bill_mon = nav.get_subgoal(88, 3, 5, badges=3, hp=63, max_hp=63, bill_said_use_pc=False)
+    assert sg_bill_mon.goal_name == "approach_bill_pokemon"
+
+    sg_bill_pc = nav.get_subgoal(88, 1, 5, badges=3, hp=63, max_hp=63, bill_said_use_pc=True, used_cell_separator=False)
+    assert sg_bill_pc.goal_name == "interact_bills_pc"
+    assert sg_bill_pc.is_interaction is True
+
+    sg_bill_human = nav.get_subgoal(88, 4, 5, badges=3, hp=63, max_hp=63, bill_said_use_pc=True, used_cell_separator=True, has_ss_ticket=False)
+    assert sg_bill_human.goal_name == "interact_bill_human"
+    assert sg_bill_human.is_interaction is True
+
+    sg_bill_exit = nav.get_subgoal(88, 3, 5, badges=3, hp=63, max_hp=63, has_ss_ticket=True)
+    assert sg_bill_exit.goal_name == "approach_exit_bills_house"
+
+    # 16. Returning through Trashed House (Map 62) -> advance to wall hole
+    sg_trashed = nav.get_subgoal(62, 3, 5, badges=3, hp=63, max_hp=63, has_ss_ticket=True)
+    assert sg_trashed.goal_name == "advance_trashed_house_hole"
+
+    # 17. Backyard south towards Route 5
+    sg_backyard = nav.get_subgoal(3, 27, 9, badges=3, hp=63, max_hp=63, has_ss_ticket=True)
+    assert sg_backyard.goal_name == "south_to_route5"
+
+
+def test_world_graph_vermilion_city_and_gym():
+    """Verify complete topological navigation across Route 6, Vermilion City, and Vermilion Gym."""
+    nav = WorldGraphNavigator()
+
+    # 1. Route 6 south into Vermilion gatehouse
+    sg1 = nav.get_subgoal(17, 9, 35, badges=3, party_moves=[15])
+    assert sg1.goal_name == "enter_vermilion_from_route6"
+    assert sg1.target_coord == (9, 36)
+    assert sg1.is_warp is True
+
+    # 2. Vermilion City entry: route to Pokecenter entrance
+    sg2 = nav.get_subgoal(5, 18, 0, badges=3, party_moves=[15], visited_vermilion_pokecenter=False)
+    assert sg2.goal_name == "approach_vermilion_pokecenter"
+
+    # 3. In front of Vermilion Pokecenter door: enter
+    sg3 = nav.get_subgoal(5, 11, 4, badges=3, party_moves=[15], visited_vermilion_pokecenter=False)
+    assert sg3.goal_name == "enter_vermilion_pokecenter"
+    assert sg3.target_coord == (11, 3)
+    assert sg3.is_warp is True
+
+    # 4. Outside Pokecenter with Cut learned: route to Cut tree blocking Gym
+    sg4 = nav.get_subgoal(5, 15, 17, badges=3, party_moves=[15], visited_vermilion_pokecenter=True)
+    assert sg4.goal_name == "cut_vermilion_gym_tree"
+    assert sg4.is_interaction is True
+
+    # 5. In front of Vermilion Gym door: enter Gym
+    sg5 = nav.get_subgoal(5, 12, 19, badges=3, party_moves=[15], visited_vermilion_pokecenter=True)
+    assert sg5.goal_name == "enter_vermilion_gym"
+    assert sg5.target_coord == (12, 18)
+    assert sg5.is_warp is True
+
+    # 6. Inside Vermilion Gym: approach Lt. Surge
+    sg6 = nav.get_subgoal(92, 4, 17, badges=3, party_moves=[15])
+    assert sg6.goal_name == "approach_lt_surge"
+
+    # 7. In front of Lt. Surge: challenge for Thunder Badge
+    sg7 = nav.get_subgoal(92, 5, 2, badges=3, party_moves=[15])
+    assert sg7.goal_name == "challenge_lt_surge"
+    assert sg7.target_coord == (5, 1)
+    assert sg7.is_interaction is True
+
+    # 8. Post-battle in Gym with Thunder Badge (badges=7): approach exit
+    sg8 = nav.get_subgoal(92, 5, 2, badges=7, party_moves=[15])
+    assert sg8.goal_name == "approach_gym_exit"
+
+    # 9. At Vermilion Gym door mat: exit to city
+    sg9 = nav.get_subgoal(92, 4, 17, badges=7, party_moves=[15])
+    assert sg9.goal_name == "exit_vermilion_gym"
+    assert sg9.target_coord == (4, 18)
+    assert sg9.is_warp is True
+
+    # 10. In Vermilion City with Thunder Badge: advance east to Route 11 / Diglett's Cave
+    sg10 = nav.get_subgoal(5, 12, 19, badges=7, party_moves=[15])
+    assert sg10.goal_name == "east_to_route11"
+    assert sg10.target_coord == (39, 9)
 
 
 # =============================================================================

@@ -88,17 +88,86 @@ class WorldGraphNavigator:
             except Exception:
                 pass
 
-        # Static NPC obstacle calibrations for Mt Moon
+        # Static NPC obstacle calibrations for Mt Moon & Route 3
+        if 14 in grids:
+            # Route 3 static trainer coordinates from external/pokered/data/maps/objects/Route3.asm
+            # Includes (20, 4) where Lass 2 steps when engaging
+            r3_npcs = [(10, 6), (14, 4), (16, 9), (19, 5), (20, 4), (23, 4), (22, 9), (24, 6), (33, 10)]
+            for nx, ny in r3_npcs:
+                if ny < len(grids[14]) and nx < len(grids[14][ny]):
+                    grids[14][ny][nx] = '#'
+
         for mid in (57, 59):
             if mid in grids and len(grids[mid]) > 16:
                 if len(grids[mid][16]) > 12:
                     grids[mid][16][12] = '#'
+
+        # Mt Moon 1F (Map 59) ladder Hiker obstacle (5, 6) and dead-end warp ladders (17, 11) & (25, 15)
+        if 59 in grids:
+            if len(grids[59]) > 6 and len(grids[59][6]) > 5:
+                grids[59][6][5] = '#'
+            if len(grids[59]) > 11 and len(grids[59][11]) > 17:
+                grids[59][11][17] = '#'
+            if len(grids[59]) > 15 and len(grids[59][15]) > 25:
+                grids[59][15][25] = '#'
 
         if 61 in grids:
             if len(grids[61]) > 8 and len(grids[61][8]) > 12:
                 grids[61][8][12] = '#'
             if len(grids[61]) > 16 and len(grids[61][16]) > 11:
                 grids[61][16][11] = '#'
+
+        # Route 24 static trainer calibrations from external/pokered/data/maps/objects/Route24.asm
+        if 35 in grids:
+            r24_npcs = [(11, 31), (10, 28), (11, 25), (10, 22), (11, 19), (11, 15), (10, 5)]
+            for nx, ny in r24_npcs:
+                if ny < len(grids[35]) and nx < len(grids[35][ny]):
+                    grids[35][ny][nx] = '#'
+
+        # Route 25 static trainer calibrations from external/pokered/data/maps/objects/Route25.asm
+        if 36 in grids:
+            r25_npcs = [
+                (14, 2), (18, 5), (24, 4), (18, 8), (32, 3), (37, 4),
+                (8, 4), (23, 9), (13, 7), (22, 2)
+            ]
+            for nx, ny in r25_npcs:
+                if ny < len(grids[36]) and nx < len(grids[36][ny]):
+                    grids[36][ny][nx] = '#'
+
+        # Cerulean City static NPC calibrations (outside gym and slowbro) from CeruleanCity.asm
+        if 3 in grids:
+            c_npcs = [(31, 20), (28, 26), (29, 26), (28, 12)]
+            for nx, ny in c_npcs:
+                if ny < len(grids[3]) and nx < len(grids[3][ny]):
+                    grids[3][ny][nx] = '#'
+
+        # Route 6 static trainer calibrations from external/pokered/data/maps/objects/Route6.asm
+        if 17 in grids:
+            r6_npcs = [(10, 21), (11, 21), (0, 15), (11, 31), (11, 30), (19, 26)]
+            for nx, ny in r6_npcs:
+                if ny < len(grids[17]) and nx < len(grids[17][ny]):
+                    grids[17][ny][nx] = '#'
+
+        # Vermilion City static NPC calibrations from external/pokered/data/maps/objects/VermilionCity.asm
+        if 5 in grids:
+            v_npcs = [(14, 6), (19, 30), (30, 7)]
+            for nx, ny in v_npcs:
+                if ny < len(grids[5]) and nx < len(grids[5][ny]):
+                    grids[5][ny][nx] = '#'
+
+        # S.S. Anne 1F static NPC calibrations from external/pokered/data/maps/objects/SSAnne1F.asm
+        if 95 in grids:
+            s95_npcs = [(27, 5), (11, 6), (12, 6), (13, 6)]
+            for nx, ny in s95_npcs:
+                if ny < len(grids[95]) and nx < len(grids[95][ny]):
+                    grids[95][ny][nx] = '#'
+
+        # S.S. Anne 2F static NPC and dead-end stairs calibrations
+        if 96 in grids:
+            if len(grids[96]) > 7 and len(grids[96][7]) > 3:
+                grids[96][7][3] = '#'
+            if len(grids[96]) > 12 and len(grids[96][12]) > 2:
+                grids[96][12][2] = '#'  # 3F stairs to avoid while navigating 2F corridor
 
         WorldGraphNavigator._CACHED_MAP_GRIDS = grids
         self._map_grids = grids
@@ -128,14 +197,15 @@ class WorldGraphNavigator:
                 if 0 <= nc < w and 0 <= nr < h and (nc, nr) not in visited:
                     t = grid[nr][nc]
                     # Authentic Gen 1 obstacle constraints:
-                    # '#' = Wall/Border, '!' = Solid sign/fence, '=' = Counter, 'B' = Bookcase
+                    # '#' = Wall/Border, '!' = Solid sign/fence, '=' = Counter, 'B' = Bookcase,
+                    # 'T' = TV/Slot machine, '^' = Blueprint/Painting, 'U' = Trash can, 'G' = Gym statue/quiz
                     # '~' = Tall Grass (100% WALKABLE - where wild battles occur)
-                    # 'W' = Water (walkable if surfing), 'C' = Cut tree, 'P' = Strength boulder
-                    if t in ('#', '!', '=', 'B'):
+                    # 'W' = Water (walkable if surfing), 'C' / 't' = Cut tree, 'P' = Strength boulder
+                    if t in ('#', '!', '=', 'B', 'T', '^', 'U', 'G'):
                         continue
                     if t == 'W' and not can_surf:
                         continue
-                    if t == 'C' and not can_cut:
+                    if t in ('C', 't') and not can_cut:
                         continue
                     if t == 'P' and not can_strength:
                         continue
@@ -177,6 +247,10 @@ class WorldGraphNavigator:
         has_fossil: bool = False,
         bag: Optional[List[int]] = None,
         party_moves: Optional[List[int]] = None,
+        has_ss_ticket: bool = False,
+        used_cell_separator: bool = False,
+        bill_said_use_pc: bool = False,
+        visited_vermilion_pokecenter: bool = True,
     ) -> MapSubgoal:
         """
         Dynamically determine the optimal next waypoint/subgoal given current map and coordinates,
@@ -184,7 +258,12 @@ class WorldGraphNavigator:
         """
         bag_items = bag or []
         moves = party_moves or []
+        if RAMMap.ITEM_S_S_TICKET in bag_items:
+            has_ss_ticket = True
         state_dict = {"badges": badges, "bag": bag_items, "party_moves": moves}
+        can_cut = KeyItemPreconditionChecker.can_cut_tree(state_dict)
+        can_surf = KeyItemPreconditionChecker.can_surf_water(state_dict)
+        can_strength = KeyItemPreconditionChecker.can_push_boulder(state_dict)
 
         # ---------------------------------------------------------------------
         # 1. PALLET TOWN & STARTER LOCALES (Maps 0, 37, 38, 39, 40)
@@ -433,7 +512,7 @@ class WorldGraphNavigator:
         elif map_id == 14:  # Route 3
             if x >= 58 and y <= 0:
                 return MapSubgoal((59, -1), "enter_route4", "Step north through mountain pass onto Route 4", is_warp=True)
-            wp = self._bfs_next_waypoint(14, (x, y), (59, 0), lookahead=3)
+            wp = self._bfs_next_waypoint(14, (x, y), (59, 0), lookahead=1)
             return MapSubgoal(wp, "route3_advance_pass", f"Advance east along Route 3 mountain pass towards Route 4 via {wp}")
 
         elif map_id == 15:  # Route 4
@@ -441,11 +520,11 @@ class WorldGraphNavigator:
                 if hp < max_hp and x < 16:
                     if (x, y) in ((11, 6), (11, 5)):
                         return MapSubgoal((11, 5), "enter_mt_moon_pokecenter", "Enter Mt. Moon Pokécenter to heal", is_warp=True)
-                    wp = self._bfs_next_waypoint(15, (x, y), (11, 6), lookahead=2)
+                    wp = self._bfs_next_waypoint(15, (x, y), (11, 6), lookahead=1)
                     return MapSubgoal(wp, "approach_mt_moon_pokecenter", "Approach Mt. Moon Pokécenter entrance")
                 if (x, y) in ((18, 6), (18, 5)):
                     return MapSubgoal((18, 5), "enter_mt_moon", "Enter Mt. Moon cave", is_warp=True)
-                wp = self._bfs_next_waypoint(15, (x, y), (18, 5), lookahead=3)
+                wp = self._bfs_next_waypoint(15, (x, y), (18, 5), lookahead=1)
                 return MapSubgoal(wp, "approach_mt_moon", "Advance towards Mt. Moon entrance")
             else:
                 if x >= 89:
@@ -456,6 +535,8 @@ class WorldGraphNavigator:
         elif map_id == 59:  # Mt. Moon 1F
             if (x, y) == (14, 35):
                 return MapSubgoal((14, 25), "mt_moon_1f_corridor_north", "Advance north along entry corridor")
+            if (x, y) == (17, 11):
+                return MapSubgoal((17, 10), "step_off_ladder", "Step north off ladder towards 1F corridor")
             if (x, y) == (5, 5):
                 return MapSubgoal((5, 5), "descend_ladder_1f", "Descend ladder to B1F", is_warp=True)
             wp = self._bfs_next_waypoint(59, (x, y), (5, 5), lookahead=1)
@@ -467,6 +548,12 @@ class WorldGraphNavigator:
                     return MapSubgoal((27, 3), "exit_to_route4", "Step through cave exit into Route 4 East", is_warp=True)
                 wp = self._bfs_next_waypoint(60, (x, y), (27, 3), lookahead=1)
                 return MapSubgoal(wp, "b1f_to_exit_door", "Advance east to cave exit doorway", is_warp=(wp == (27, 3)))
+            elif 16 <= x <= 26 and 8 <= y <= 14:
+                # Dead-end basement tunnel entered from 1F (17, 11): ascend ladder at (25, 9) back to 1F
+                if (x, y) == (25, 9):
+                    return MapSubgoal((25, 9), "ascend_to_1f", "Ascend ladder back to Mt. Moon 1F", is_warp=True)
+                wp = self._bfs_next_waypoint(60, (x, y), (25, 9), lookahead=1)
+                return MapSubgoal(wp, "b1f_return_ladder", f"Return to 1F ladder via {wp}", is_warp=(wp == (25, 9)))
             else:
                 if (x, y) == (25, 15):
                     return MapSubgoal((25, 27), "b1f_corridor_south", "Advance south along tunnel corridor")
@@ -486,28 +573,67 @@ class WorldGraphNavigator:
             return MapSubgoal(wp, "b2f_approach_exit_ladder", "Advance through B2F cavern towards exit ladder", is_warp=(wp == (5, 7)))
 
         # ---------------------------------------------------------------------
-        # 6. CERULEAN CITY & GYM (Maps 3, 65)
+        # 6. CERULEAN CITY & GYM (Maps 3, 65, 62, 35, 36, 88)
         # ---------------------------------------------------------------------
         elif map_id == 3:  # Cerulean City
-            if (badges & RAMMap.BADGE_CASCADE) == 0:
-                if hp < max_hp or hp == 0:
-                    if (x, y) in ((19, 18), (19, 17)):
-                        return MapSubgoal((19, 17), "enter_cerulean_pokecenter", "Step north through door into Cerulean Pokécenter", is_warp=True)
-                    else:
-                        wp = self._bfs_next_waypoint(3, (x, y), (19, 18), lookahead=2)
-                        return MapSubgoal(wp, "approach_pokecenter", f"Advance towards Pokécenter entrance via {wp}")
+            # If lead Pokémon is low HP or fainted, always heal first at Pokécenter
+            if hp < max_hp or hp == 0:
+                if (x, y) in ((19, 18), (19, 17)):
+                    return MapSubgoal((19, 17), "enter_cerulean_pokecenter", "Step north through door into Cerulean Pokécenter", is_warp=True)
                 else:
-                    if (x, y) in ((30, 20), (30, 19)):
-                        return MapSubgoal((30, 19), "enter_cerulean_gym", "Enter Cerulean Gym to challenge Gym Leader Misty", is_warp=True)
-                    else:
-                        wp = self._bfs_next_waypoint(3, (x, y), (30, 20), lookahead=2)
-                        return MapSubgoal(wp, "approach_cerulean_gym", f"Advance towards Cerulean Gym entrance via {wp}")
+                    wp = self._bfs_next_waypoint(3, (x, y), (19, 18), lookahead=1)
+                    return MapSubgoal(wp, "approach_pokecenter", f"Advance towards Pokécenter entrance via {wp}")
+
+            # Badge 2 (Cascade Badge) not yet acquired -> challenge Misty in Cerulean Gym
+            if (badges & RAMMap.BADGE_CASCADE) == 0:
+                if (x, y) in ((30, 20), (30, 19)):
+                    return MapSubgoal((30, 19), "enter_cerulean_gym", "Enter Cerulean Gym to challenge Gym Leader Misty", is_warp=True)
+                else:
+                    wp = self._bfs_next_waypoint(3, (x, y), (30, 20), lookahead=1)
+                    return MapSubgoal(wp, "approach_cerulean_gym", f"Advance towards Cerulean Gym entrance via {wp}")
+
+            # Milestone override if specifically requested
+            if self.milestone == "cascade_badge":
+                return MapSubgoal((x, y), "cascade_badge_achieved", "Cascade Badge Acquired!")
+
+            # Cascade Badge acquired:
+            # Check if Red has the S.S. Ticket from Bill to unlock the burgled house and S.S. Anne
+            if not has_ss_ticket:
+                # Route north along central avenue to Route 24 (Nugget Bridge) & Bill's Sea Cottage
+                if (x, y) == (20, 0):
+                    return MapSubgoal((20, -1), "enter_route24", "Step north onto Route 24 towards Nugget Bridge", is_warp=True)
+                wp = self._bfs_next_waypoint(3, (x, y), (20, 0), lookahead=1, can_cut=can_cut)
+                return MapSubgoal(wp, "north_to_route24", f"Advance north towards Route 24 / Nugget Bridge via {wp}")
             else:
-                # If specifically tracking cascade milestone, celebrate completion
-                if self.milestone == "cascade_badge":
-                    return MapSubgoal((x, y), "cascade_badge_achieved", "Cascade Badge Acquired!")
-                # Otherwise advance south towards Route 5 and Vermilion City for Badge 3
-                return MapSubgoal((17, 35), "south_to_route5", "Advance south through Cerulean City towards Route 5")
+                # S.S. Ticket in possession:
+                # Check if Red has crossed through Trashed House into backyard / eastern alley / southern lane
+                has_crossed_trashed_house = (
+                    (x >= 26 and y <= 11) or
+                    (x >= 33 and 12 <= y <= 18) or
+                    (x >= 35 and y <= 31) or
+                    (y >= 29)
+                )
+                if has_crossed_trashed_house:
+                    if (x, y) == (17, 35):
+                        return MapSubgoal((17, 36), "enter_route5", "Step south onto Route 5 towards Vermilion City", is_warp=True)
+                    if x < 36 and y <= 18:
+                        # Stage 1: Walk through backyard alley to eastern corridor entrance at (36, 18)
+                        wp = self._bfs_next_waypoint(3, (x, y), (36, 18), lookahead=1, can_cut=can_cut)
+                        return MapSubgoal(wp, "south_to_route5", f"Advance east towards corridor entrance via {wp}")
+                    elif y < 31:
+                        # Stage 2: Walk down eastern corridor past row 28 wall down to (36, 31)
+                        wp = self._bfs_next_waypoint(3, (x, y), (36, 31), lookahead=1, can_cut=can_cut)
+                        return MapSubgoal(wp, "south_to_route5", f"Advance south down corridor via {wp}")
+                    else:
+                        # Stage 3: Walk west along row 31 and down ledge to Route 5 gate at (17, 35)
+                        wp = self._bfs_next_waypoint(3, (x, y), (17, 35), lookahead=1, can_cut=can_cut)
+                        return MapSubgoal(wp, "south_to_route5", f"Advance towards Route 5 via {wp}")
+                else:
+                    # In main city square: enter Trashed House at (27, 11)
+                    if (x, y) in ((27, 12), (27, 11)):
+                        return MapSubgoal((27, 11), "enter_trashed_house", "Step north through door into Trashed House", is_warp=True)
+                    wp = self._bfs_next_waypoint(3, (x, y), (27, 12), lookahead=1, can_cut=can_cut)
+                    return MapSubgoal(wp, "approach_trashed_house", f"Advance towards Trashed House entrance via {wp}")
 
         elif map_id == 65:  # Cerulean Gym (Misty)
             if (badges & RAMMap.BADGE_CASCADE) == 0:
@@ -524,26 +650,116 @@ class WorldGraphNavigator:
                 wp = self._bfs_next_waypoint(65, (x, y), (4, 13), lookahead=1)
                 return MapSubgoal(wp, "exit_cerulean_gym", f"Walk south towards Cerulean Gym exit via {wp}")
 
+        elif map_id == 62:  # Cerulean Trashed House
+            if (x, y) == (3, 0):
+                return MapSubgoal((3, -1), "exit_trashed_house_hole", "Step north through wall hole into backyard", is_warp=True)
+            wp = self._bfs_next_waypoint(62, (x, y), (3, 0), lookahead=1)
+            return MapSubgoal(wp, "advance_trashed_house_hole", f"Advance towards wall hole via {wp}")
+
+        elif map_id == 35:  # Route 24 (Nugget Bridge)
+            if not has_ss_ticket:
+                # Advance north across Nugget Bridge and east onto Route 25 at (20, 8)
+                if x >= 19:
+                    return MapSubgoal((20, y), "enter_route25", "Step east onto Route 25", is_warp=True)
+                wp = self._bfs_next_waypoint(35, (x, y), (19, 8), lookahead=1)
+                goal_name = "route24_nugget_bridge" if y > 9 else "route24_east_to_route25"
+                return MapSubgoal(wp, goal_name, f"Advance north along Nugget Bridge and east to Route 25 via {wp}")
+            else:
+                # Returning south towards Cerulean City with S.S. Ticket
+                if (x, y) == (10, 35):
+                    return MapSubgoal((10, 36), "enter_cerulean_city", "Step south into Cerulean City", is_warp=True)
+                wp = self._bfs_next_waypoint(35, (x, y), (10, 35), lookahead=1)
+                return MapSubgoal(wp, "route24_south_to_cerulean", f"Advance south towards Cerulean City via {wp}")
+
+        elif map_id == 36:  # Route 25 (Path to Sea Cottage)
+            if not has_ss_ticket:
+                # Advance east to Bill's Sea Cottage at (45, 3)
+                if (x, y) in ((45, 4), (45, 3)):
+                    return MapSubgoal((45, 3), "enter_bills_house", "Enter Bill's Sea Cottage", is_warp=True)
+                wp = self._bfs_next_waypoint(36, (x, y), (45, 4), lookahead=1)
+                return MapSubgoal(wp, "route25_advance_east", f"Advance east towards Bill's House via {wp}")
+            else:
+                # Returning west towards Route 24 with S.S. Ticket
+                if (x, y) == (0, 8):
+                    return MapSubgoal((-1, 8), "enter_route24", "Step west onto Route 24", is_warp=True)
+                wp = self._bfs_next_waypoint(36, (x, y), (0, 8), lookahead=1)
+                return MapSubgoal(wp, "route25_return_west", f"Return west towards Route 24 via {wp}")
+
+        elif map_id == 88:  # Bill's House (Sea Cottage)
+            if has_ss_ticket:
+                # S.S. Ticket claimed! Exit Bill's House
+                if (x, y) in ((2, 7), (3, 7)):
+                    return MapSubgoal((2, 8), "exit_bills_house", "Step outside back onto Route 25", is_warp=True)
+                wp = self._bfs_next_waypoint(88, (x, y), (2, 7), lookahead=1)
+                return MapSubgoal(wp, "approach_exit_bills_house", f"Walk towards house exit via {wp}")
+            elif not bill_said_use_pc:
+                # First encounter: Bill the Pokémon is at (6, 5)
+                if (x, y) == (5, 5):
+                    return MapSubgoal((6, 5), "interact_bill_pokemon", "Speak with Bill the Pokémon", is_interaction=True)
+                wp = self._bfs_next_waypoint(88, (x, y), (5, 5), lookahead=1)
+                return MapSubgoal(wp, "approach_bill_pokemon", f"Approach Bill the Pokémon via {wp}")
+            elif not used_cell_separator:
+                # Bill entered teleporter: stand at (1, 5) facing UP towards PC (1, 4)
+                if (x, y) == (1, 5):
+                    return MapSubgoal((1, 4), "interact_bills_pc", "Operate Cell Separator terminal on Bill's PC", is_interaction=True)
+                wp = self._bfs_next_waypoint(88, (x, y), (1, 5), lookahead=1)
+                return MapSubgoal(wp, "approach_bills_pc", f"Approach Bill's PC terminal via {wp}")
+            else:
+                # Machine operated: Bill emerged as human at (4, 4)
+                if (x, y) == (4, 5):
+                    return MapSubgoal((4, 4), "interact_bill_human", "Speak with Bill to claim S.S. Ticket", is_interaction=True)
+                wp = self._bfs_next_waypoint(88, (x, y), (4, 5), lookahead=1)
+                return MapSubgoal(wp, "approach_bill_human", f"Approach human Bill via {wp}")
+
         # ---------------------------------------------------------------------
         # 7. ROUTE 5, ROUTE 6, VERMILION CITY & S.S. ANNE (Maps 16, 17, 119, 5, 94, 95, 96, 101, 92)
         # ---------------------------------------------------------------------
         elif map_id == 16:  # Route 5
-            return MapSubgoal((17, 33), "south_to_underground_route5", "Advance south towards Underground Path entrance")
+            if (x, y) in ((17, 27), (17, 28)):
+                return MapSubgoal((17, 27), "enter_underground_route5", "Enter Underground Path building", is_warp=True)
+            wp = self._bfs_next_waypoint(16, (x, y), (17, 27), lookahead=1, can_cut=can_cut)
+            return MapSubgoal(wp, "south_to_underground_route5", f"Advance south towards Underground Path entrance via {wp}")
 
-        elif map_id == 119:  # Underground Path North-South
-            return MapSubgoal((4, 44), "advance_underground_south", "Walk south through Underground Path towards Vermilion City")
+        elif map_id == 71:  # Underground Path Route 5 Entrance Building
+            if (x, y) in ((4, 4), (4, 3)):
+                return MapSubgoal((4, 4), "descend_underground_stairs", "Descend stairs into Underground Path tunnel", is_warp=True)
+            wp = self._bfs_next_waypoint(71, (x, y), (4, 4), lookahead=1, can_cut=can_cut)
+            return MapSubgoal(wp, "approach_underground_stairs", f"Advance towards tunnel stairs via {wp}")
+
+        elif map_id == 119:  # Underground Path North-South Tunnel
+            if (x, y) in ((2, 41), (2, 42)):
+                return MapSubgoal((2, 41), "ascend_underground_south_stairs", "Ascend stairs into Route 6 building", is_warp=True)
+            wp = self._bfs_next_waypoint(119, (x, y), (2, 41), lookahead=1, can_cut=can_cut)
+            return MapSubgoal(wp, "advance_underground_south", f"Walk south through Underground Path towards Vermilion City via {wp}")
+
+        elif map_id == 74:  # Underground Path Route 6 Exit Building
+            if (x, y) in ((3, 7), (4, 7)):
+                return MapSubgoal((3, 8), "exit_underground_route6", "Step outside onto Route 6", is_warp=True)
+            wp = self._bfs_next_waypoint(74, (x, y), (3, 7), lookahead=1, can_cut=can_cut)
+            return MapSubgoal(wp, "approach_route6_exit", f"Walk towards building exit via {wp}")
 
         elif map_id == 17:  # Route 6
-            return MapSubgoal((10, 35), "enter_vermilion_from_route6", "Advance south into Vermilion City")
+            if (x, y) in ((9, 35), (8, 35)):
+                return MapSubgoal((x, 36), "enter_vermilion_from_route6", "Advance south into Vermilion City", is_warp=True)
+            wp = self._bfs_next_waypoint(17, (x, y), (9, 35), lookahead=1, can_cut=can_cut)
+            return MapSubgoal(wp, "route6_south_to_vermilion", f"Advance south along Route 6 towards Vermilion City via {wp}")
 
         elif map_id == 5:  # Vermilion City
+            # If Red hasn't visited Vermilion Pokécenter, heal first to set respawn point
+            if (not visited_vermilion_pokecenter) or (hp < max_hp and hp <= 30):
+                if (x, y) in ((11, 4), (11, 3)):
+                    return MapSubgoal((11, 3), "enter_vermilion_pokecenter", "Step north through door into Vermilion Pokécenter", is_warp=True)
+                wp = self._bfs_next_waypoint(5, (x, y), (11, 4), lookahead=1, can_cut=can_cut)
+                return MapSubgoal(wp, "approach_vermilion_pokecenter", f"Advance towards Vermilion Pokécenter entrance via {wp}")
+
             if (badges & RAMMap.BADGE_THUNDER) == 0:
-                can_cut = KeyItemPreconditionChecker.can_cut_tree(state_dict)
                 if not can_cut:
                     # Player needs HM01 Cut from S.S. Anne! Route south to harbor dock at (18, 30)
-                    if (x, y) in ((18, 30), (18, 31)):
-                        return MapSubgoal((18, 31), "enter_vermilion_dock", "Enter Vermilion Dock to board S.S. Anne", is_warp=True)
-                    wp = self._bfs_next_waypoint(5, (x, y), (18, 30), lookahead=2)
+                    if (x, y) in ((18, 30), (19, 30)):
+                        return MapSubgoal((x, 31), "enter_vermilion_dock", "Enter Vermilion Dock to board S.S. Anne", is_warp=True)
+                    if (x, y) in ((18, 31), (19, 31)):
+                        return MapSubgoal((x, 32), "step_south_into_dock", "Step south onto Vermilion Dock", is_warp=True)
+                    wp = self._bfs_next_waypoint(5, (x, y), (18, 30), lookahead=1, can_cut=can_cut)
                     return MapSubgoal(wp, "approach_dock", f"Advance south towards S.S. Anne dock entrance via {wp}")
                 else:
                     # Cut tree at (15, 16) blocks Gym entrance at (12, 19)
@@ -551,37 +767,74 @@ class WorldGraphNavigator:
                         return MapSubgoal((12, 18), "enter_vermilion_gym", "Enter Vermilion Gym to challenge Lt. Surge", is_warp=True)
                     if x >= 15 and y >= 16:
                         return MapSubgoal((15, 16), "cut_vermilion_gym_tree", "Cut down tree blocking Vermilion Gym entrance", is_interaction=True)
-                    wp = self._bfs_next_waypoint(5, (x, y), (12, 19), lookahead=2)
+                    wp = self._bfs_next_waypoint(5, (x, y), (12, 19), lookahead=1, can_cut=can_cut)
                     return MapSubgoal(wp, "approach_vermilion_gym", f"Advance towards Vermilion Gym entrance via {wp}")
             else:
                 # Thunder Badge acquired! Route to Route 11 / Diglett's Cave / Route 9
                 return MapSubgoal((39, 9), "east_to_route11", "Advance east onto Route 11 towards Diglett's Cave")
 
         elif map_id == 94:  # Vermilion Dock
-            return MapSubgoal((14, 0), "board_ss_anne", "Board the S.S. Anne ship", is_warp=True)
+            has_cut = (RAMMap.ITEM_HM01_CUT in bag_items) or can_cut
+            if not has_cut:
+                if (x, y) == (14, 2):
+                    return MapSubgoal((14, 3), "board_ss_anne", "Board the S.S. Anne ship", is_warp=True)
+                wp = self._bfs_next_waypoint(94, (x, y), (14, 2), lookahead=1, can_cut=can_cut)
+                return MapSubgoal(wp, "approach_gangplank", f"Advance towards S.S. Anne gangplank via {wp}")
+            else:
+                if (x, y) == (14, 0):
+                    return MapSubgoal((14, -1), "return_to_vermilion_city", "Return north to Vermilion City", is_warp=True)
+                wp = self._bfs_next_waypoint(94, (x, y), (14, 0), lookahead=1, can_cut=can_cut)
+                return MapSubgoal(wp, "approach_dock_exit", f"Advance towards dock exit via {wp}")
 
         elif map_id == 95:  # S.S. Anne 1F
-            return MapSubgoal((7, 5), "ss_anne_stairs_to_2f", "Navigate through S.S. Anne towards 2F stairs", is_warp=True)
+            has_cut = (RAMMap.ITEM_HM01_CUT in bag_items) or can_cut
+            if not has_cut:
+                if (x, y) in ((2, 6), (2, 5)):
+                    return MapSubgoal((2, 5), "ss_anne_stairs_to_2f", "Ascend stairs to S.S. Anne 2F", is_warp=True)
+                wp = self._bfs_next_waypoint(95, (x, y), (2, 6), lookahead=1, can_cut=can_cut)
+                return MapSubgoal(wp, "approach_2f_stairs", f"Advance towards 2F stairs via {wp}")
+            else:
+                if (x, y) in ((26, 0), (27, 0)):
+                    return MapSubgoal((x, -1), "disembark_ss_anne", "Disembark S.S. Anne onto dock", is_warp=True)
+                wp = self._bfs_next_waypoint(95, (x, y), (26, 0), lookahead=1, can_cut=can_cut)
+                return MapSubgoal(wp, "approach_ss_anne_exit", f"Advance towards ship exit via {wp}")
 
         elif map_id == 96:  # S.S. Anne 2F
-            return MapSubgoal((2, 5), "enter_captains_room", "Enter S.S. Anne Captain's Room", is_warp=True)
+            has_cut = (RAMMap.ITEM_HM01_CUT in bag_items) or can_cut
+            if not has_cut:
+                if (x, y) in ((36, 4), (35, 4)):
+                    return MapSubgoal((36, 3), "enter_captains_room", "Enter S.S. Anne Captain's Room", is_warp=True)
+                wp = self._bfs_next_waypoint(96, (x, y), (36, 4), lookahead=1, can_cut=can_cut)
+                return MapSubgoal(wp, "approach_captains_room", f"Advance towards Captain's Room via {wp}")
+            else:
+                if (x, y) in ((2, 4), (2, 5)):
+                    return MapSubgoal((2, 4), "descend_to_1f", "Descend stairs to S.S. Anne 1F", is_warp=True)
+                wp = self._bfs_next_waypoint(96, (x, y), (2, 4), lookahead=1, can_cut=can_cut)
+                return MapSubgoal(wp, "approach_1f_stairs", f"Advance towards 1F stairs via {wp}")
+
+        elif map_id == 97:  # S.S. Anne 3F
+            if (x, y) == (19, 3):
+                return MapSubgoal((19, 3), "ss_anne_3f_descend_to_2f", "Descend stairs back to S.S. Anne 2F", is_warp=True)
+            wp = self._bfs_next_waypoint(97, (x, y), (19, 3), lookahead=1, can_cut=can_cut)
+            return MapSubgoal(wp, "approach_2f_stairs_from_3f", f"Advance towards 2F stairs via {wp}")
 
         elif map_id == 101:  # S.S. Anne Captain's Room
-            has_cut = RAMMap.ITEM_HM01_CUT in bag_items
+            has_cut = (RAMMap.ITEM_HM01_CUT in bag_items) or can_cut
             if not has_cut:
-                return MapSubgoal((2, 2), "interact_captain", "Speak with seasick Captain to receive HM01 Cut", is_interaction=True)
-            return MapSubgoal((2, 5), "exit_captains_room", "Exit Captain's Room with HM01 Cut", is_warp=True)
+                return MapSubgoal((4, 2), "interact_captain", "Speak with seasick Captain to receive HM01 Cut", is_interaction=True)
+            return MapSubgoal((0, 7), "exit_captains_room", "Exit Captain's Room with HM01 Cut", is_warp=True)
 
         elif map_id == 92:  # Vermilion Gym (Lt. Surge)
             if (badges & RAMMap.BADGE_THUNDER) == 0:
-                if (x, y) in ((4, 3), (4, 2), (3, 2), (5, 2)):
-                    return MapSubgoal((4, 2), "challenge_lt_surge", "Step up to Gym Leader Lt. Surge to battle for Thunder Badge", is_interaction=True)
-                wp = self._bfs_next_waypoint(92, (x, y), (4, 3), lookahead=2)
-                return MapSubgoal(wp, "approach_lt_surge", f"Advance through trash-can maze towards Lt. Surge via {wp}")
+                if (x, y) in ((4, 3), (4, 2), (3, 2), (5, 2), (4, 1), (5, 1), (6, 1)):
+                    return MapSubgoal((5, 1), "challenge_lt_surge", "Step up to Gym Leader Lt. Surge to battle for Thunder Badge", is_interaction=True)
+                wp = self._bfs_next_waypoint(92, (x, y), (5, 2), lookahead=1, can_cut=can_cut)
+                return MapSubgoal(wp, "approach_lt_surge", f"Advance through Gym towards Lt. Surge via {wp}")
             else:
-                if (x, y) in ((4, 17), (4, 18)):
+                if (x, y) in ((4, 17), (5, 17)):
                     return MapSubgoal((4, 18), "exit_vermilion_gym", "Step outside back into Vermilion City", is_warp=True)
-                return MapSubgoal((4, 17), "approach_gym_exit", "Walk south towards Vermilion Gym exit")
+                wp = self._bfs_next_waypoint(92, (x, y), (4, 17), lookahead=1, can_cut=can_cut)
+                return MapSubgoal(wp, "approach_gym_exit", f"Walk south towards Vermilion Gym exit via {wp}")
 
         # ---------------------------------------------------------------------
         # 8. ROUTE 9, ROUTE 10, ROCK TUNNEL, LAVENDER TOWN (Maps 20, 21, 82, 232, 4)

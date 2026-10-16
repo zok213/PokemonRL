@@ -131,22 +131,28 @@ def main():
     obs, info = env.reset()
     step_count = 0
 
-    # Milestone tracking bitmasks
-    saved_pewter = bool(args.state and "pewter" in args.state)
-    saved_boulder = bool(args.state and "boulder" in args.state)
-    saved_route3 = False
-    saved_route4 = False
-    saved_mt_moon = False
-    saved_cerulean = bool(args.state and "cerulean" in args.state)
-    saved_pokecenter_heal = False
-    saved_cascade = False
-    saved_thunder = False
-    saved_rainbow = False
-    saved_soul = False
-    saved_marsh = False
-    saved_volcano = False
-    saved_earth = False
-    saved_hall_of_fame = False
+    # Milestone tracking: initialize from file existence so resuming from checkpoints never clobbers earlier milestones
+    saved_pewter = (REPO_ROOT / "saves" / "pewter_city.state").exists()
+    saved_boulder = (REPO_ROOT / "saves" / "boulder_badge.state").exists()
+    saved_route3 = (REPO_ROOT / "saves" / "route3.state").exists()
+    saved_route4 = (REPO_ROOT / "saves" / "route4.state").exists()
+    saved_mt_moon = (REPO_ROOT / "saves" / "mt_moon.state").exists()
+    saved_cerulean = (REPO_ROOT / "saves" / "cerulean_city.state").exists()
+    saved_pokecenter_heal = (REPO_ROOT / "saves" / "cerulean_healed.state").exists()
+    saved_cascade = (REPO_ROOT / "saves" / "cascade_badge.state").exists()
+    saved_route24 = (REPO_ROOT / "saves" / "route24.state").exists()
+    saved_ss_ticket = (REPO_ROOT / "saves" / "ss_ticket.state").exists()
+    saved_route5 = (REPO_ROOT / "saves" / "route5.state").exists()
+    saved_vermilion = (REPO_ROOT / "saves" / "vermilion_city.state").exists()
+    saved_vermilion_healed = (REPO_ROOT / "saves" / "vermilion_healed.state").exists()
+    saved_ss_anne_cut = (REPO_ROOT / "saves" / "ss_anne_cut.state").exists()
+    saved_thunder = (REPO_ROOT / "saves" / "thunder_badge.state").exists()
+    saved_rainbow = (REPO_ROOT / "saves" / "rainbow_badge.state").exists()
+    saved_soul = (REPO_ROOT / "saves" / "soul_badge.state").exists()
+    saved_marsh = (REPO_ROOT / "saves" / "marsh_badge.state").exists()
+    saved_volcano = (REPO_ROOT / "saves" / "volcano_badge.state").exists()
+    saved_earth = (REPO_ROOT / "saves" / "earth_badge.state").exists()
+    saved_hall_of_fame = (REPO_ROOT / "saves" / "hall_of_fame.state").exists()
 
     print("\n[+] Starting live policy execution loop...\n", flush=True)
 
@@ -203,9 +209,13 @@ def main():
             bag_count = env.read_m(RAMMap.NUM_BAG_ITEMS)
             bag_items = [env.read_m(RAMMap.BAG_ITEMS_START + 2 * i) for i in range(bag_count)]
 
-            fossil_byte = env.read_m(0xD5A6 + 549 // 8)
-            event_fossil = bool(fossil_byte & ((1 << (549 % 8)) | (1 << (550 % 8))))
-            has_fossil = event_fossil or (RAMMap.ITEM_DOME_FOSSIL in bag_items) or (RAMMap.ITEM_HELIX_FOSSIL in bag_items)
+            fossil_byte = env.read_m(0xD7F6)
+            has_fossil = bool(fossil_byte & 0xC0) or (RAMMap.ITEM_DOME_FOSSIL in bag_items) or (RAMMap.ITEM_HELIX_FOSSIL in bag_items)
+
+            bill_byte = env.read_m(0xD7F2)
+            has_ss_ticket = bool(bill_byte & (1 << 4)) or (RAMMap.ITEM_S_S_TICKET in bag_items)
+            used_cell_separator = bool(bill_byte & (1 << 3))
+            bill_said_use_pc = bool(bill_byte & (1 << 6))
 
             snapshot = {
                 "map_id": map_id,
@@ -213,6 +223,9 @@ def main():
                 "y": cur_y,
                 "player_dir": player_dir,
                 "has_fossil": has_fossil,
+                "has_ss_ticket": has_ss_ticket,
+                "used_cell_separator": used_cell_separator,
+                "bill_said_use_pc": bill_said_use_pc,
                 "in_battle": in_battle,
                 "battle_type": battle_type,
                 "badges": badges,
@@ -273,8 +286,8 @@ def main():
             if not args.headless:
                 env.render()
 
-            # Checkpoint Save every 500 steps
-            if step_count % 500 == 0:
+            # Checkpoint Save every 100 steps
+            if step_count % 100 == 0:
                 ckpt_file = REPO_ROOT / "saves" / "checkpoint_progress.state"
                 ckpt_file.parent.mkdir(parents=True, exist_ok=True)
                 with open(ckpt_file, "wb") as f:
@@ -289,6 +302,9 @@ def main():
                 with open(save_file, "wb") as sf:
                     env.pyboy.save_state(sf)
                 print(f"\n{'='*75}\n  [+] MILESTONE ACHIEVED: {desc} AT STEP {step_count}!\n  Saved: {save_file.name}\n{'='*75}\n", flush=True)
+
+            if map_id in (0, 38) and saved_pewter and not saved_boulder:
+                saved_pewter = False
 
             if map_id == 2 and not saved_pewter:
                 saved_pewter = True
@@ -323,6 +339,30 @@ def main():
                 save_milestone("cascade_badge.state", "CASCADE BADGE ACQUIRED (MISTY DEFEATED)")
                 if not args.all_badges:
                     break
+
+            if map_id == 35 and not saved_route24:
+                saved_route24 = True
+                save_milestone("route24.state", "ENTERED ROUTE 24 (NUGGET BRIDGE)")
+
+            if has_ss_ticket and not saved_ss_ticket:
+                saved_ss_ticket = True
+                save_milestone("ss_ticket.state", "OBTAINED S.S. TICKET FROM BILL")
+
+            if map_id == 16 and not saved_route5:
+                saved_route5 = True
+                save_milestone("route5.state", "ENTERED ROUTE 5")
+
+            if map_id == 5 and not saved_vermilion:
+                saved_vermilion = True
+                save_milestone("vermilion_city.state", "ENTERED VERMILION CITY")
+
+            if map_id == 89 and hp_val == max_hp and hp_val > 0 and not saved_vermilion_healed:
+                saved_vermilion_healed = True
+                save_milestone("vermilion_healed.state", "VERMILION POKÉCENTER HEALED")
+
+            if (RAMMap.ITEM_HM01_CUT in bag_items) and not saved_ss_anne_cut:
+                saved_ss_anne_cut = True
+                save_milestone("ss_anne_cut.state", "OBTAINED HM01 CUT ON S.S. ANNE")
 
             if (badges & RAMMap.BADGE_THUNDER) and not saved_thunder:
                 saved_thunder = True
@@ -359,6 +399,13 @@ def main():
     except KeyboardInterrupt:
         print("\n[*] Gracefully stopping hybrid runner...")
     finally:
+        ckpt_file = REPO_ROOT / "saves" / "checkpoint_progress.state"
+        ckpt_file.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with open(ckpt_file, "wb") as f:
+                env.pyboy.save_state(f)
+        except Exception:
+            pass
         env.close()
         print(f"[+] Session complete. Total steps executed: {step_count}")
 

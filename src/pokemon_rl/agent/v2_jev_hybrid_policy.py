@@ -114,6 +114,7 @@ class BaselineV2JevSteeredPolicy:
         self.battle_cooldown: int = 0
         self.battle_stall_counter: int = 0
         self.last_battle_state: Optional[Tuple[int, int, int, int]] = None
+        self.visited_vermilion_pokecenter: bool = False
 
     def _load_v2_model(self):
         """Load pretrained Stable-Baselines3 PPO policy weights into CPU memory."""
@@ -504,9 +505,24 @@ class BaselineV2JevSteeredPolicy:
         hp = active_mon.get("hp", 20)
         max_hp = max(1, active_mon.get("max_hp", 20))
 
+        if map_id == 89:
+            self.visited_vermilion_pokecenter = True
+
         # 3. Overworld Navigation State: Ground in Topological World Graph
         subgoal_obj: MapSubgoal = self.world_navigator.get_subgoal(
-            map_id, x, y, badges=badges, hp=hp, max_hp=max_hp, has_fossil=snapshot.get("has_fossil", False)
+            map_id,
+            x,
+            y,
+            badges=badges,
+            hp=hp,
+            max_hp=max_hp,
+            has_fossil=snapshot.get("has_fossil", False),
+            bag=snapshot.get("bag", []),
+            party_moves=active_mon.get("moves", []),
+            has_ss_ticket=snapshot.get("has_ss_ticket", False),
+            used_cell_separator=snapshot.get("used_cell_separator", False),
+            bill_said_use_pc=snapshot.get("bill_said_use_pc", False),
+            visited_vermilion_pokecenter=self.visited_vermilion_pokecenter,
         )
         tg_x, tg_y = subgoal_obj.target_coord
 
@@ -557,9 +573,9 @@ class BaselineV2JevSteeredPolicy:
             else:
                 step_dir = "left"
         elif subgoal_obj.is_warp and dx == 0 and dy == 0:
-            if "exit" in subgoal_obj.goal_name or "outside" in subgoal_obj.goal_name:
+            if any(k in subgoal_obj.goal_name for k in ("exit", "outside", "dock", "south")):
                 step_dir = "down"
-            elif "east" in subgoal_obj.goal_name or "cerulean" in subgoal_obj.goal_name:
+            elif any(k in subgoal_obj.goal_name for k in ("east", "cerulean")):
                 step_dir = "right"
             else:
                 step_dir = "up"
@@ -579,32 +595,45 @@ class BaselineV2JevSteeredPolicy:
                 # Direct step blocked by dynamic obstacle -> detour via OccupancyGridRouter
                 coll = collision_matrix if collision_matrix is not None else [[1] * 20] * 18
                 step_dir = self.router.plan_path(coll, (dx, dy), blocked_directions=self.blocked_dirs)
+                if not step_dir:
+                    all_dirs = ["down", "left", "right", "up"]
+                    step_dir = next((d for d in all_dirs if d not in self.blocked_dirs), direct_dir)
         else:
             # Dynamic pathfinding via OccupancyGridRouter
             coll = collision_matrix if collision_matrix is not None else [[1] * 20] * 18
             step_dir = self.router.plan_path(coll, (dx, dy), blocked_directions=self.blocked_dirs)
 
             if not step_dir:
-                # Vector fallback with blocked direction avoidance
-                candidates = []
+                # 4-way Vector fallback with blocked direction avoidance
                 if abs(dx) >= abs(dy):
-                    candidates = ["right" if dx > 0 else "left", "down" if dy > 0 else "up"]
+                    pref = [
+                        "right" if dx > 0 else "left",
+                        "down" if dy > 0 else "up",
+                        "up" if dy > 0 else "down",
+                        "left" if dx > 0 else "right",
+                    ]
                 else:
-                    candidates = ["down" if dy > 0 else "up", "right" if dx > 0 else "left"]
-
-                # Select first unblocked candidate
-                step_dir = next((d for d in candidates if d not in self.blocked_dirs), candidates[0])
+                    pref = [
+                        "down" if dy > 0 else "up",
+                        "right" if dx > 0 else "left",
+                        "left" if dx > 0 else "right",
+                        "up" if dy > 0 else "down",
+                    ]
+                step_dir = next((d for d in pref if d not in self.blocked_dirs), pref[0])
 
         opposite_map = {"up": "down", "down": "up", "left": "right", "right": "left"}
         if step_dir and step_dir in ACTION_TO_IDX:
-            z_aff[ACTION_TO_IDX[step_dir]] += 5.5
+            z_aff[ACTION_TO_IDX[step_dir]] += 6.0
+            for d in ("up", "down", "left", "right"):
+                if d != step_dir and d in ACTION_TO_IDX:
+                    z_aff[ACTION_TO_IDX[d]] -= 3.5
             opp = opposite_map.get(step_dir)
             if opp and opp in ACTION_TO_IDX:
-                z_aff[ACTION_TO_IDX[opp]] -= 4.5
+                z_aff[ACTION_TO_IDX[opp]] -= 2.0
 
-        # In caves and dungeons, ensure sufficient steering authority to follow BFS waypoints
-        if map_id in (59, 60, 61, 14, 15):
-            alpha = max(alpha, 1.8)
+        # In caves, routes, and cities, ensure sufficient steering authority to follow BFS waypoints
+        if map_id in (59, 60, 61, 14, 15, 3, 35, 36, 16, 17, 5, 2):
+            alpha = max(alpha, 2.0)
 
         # In overworld navigation: suppress non-directional buttons (A, B, START) to avoid accidental NPC dialogue
         z_aff[ACTION_TO_IDX["a"]] -= 4.0
