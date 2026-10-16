@@ -89,6 +89,12 @@ class WorldGraphNavigator:
                 pass
 
         # Static NPC obstacle calibrations for Mt Moon & Route 3
+        if 2 in grids:
+            p_npcs = [(27, 17), (35, 16)]
+            for nx, ny in p_npcs:
+                if ny < len(grids[2]) and nx < len(grids[2][ny]):
+                    grids[2][ny][nx] = '#'
+
         if 14 in grids:
             # Route 3 static trainer coordinates from external/pokered/data/maps/objects/Route3.asm
             # Includes (20, 4) where Lass 2 steps when engaging
@@ -395,6 +401,19 @@ class WorldGraphNavigator:
         # 3. ROUTE 2 & VIRIDIAN FOREST (Maps 13, 50, 51, 47)
         # ---------------------------------------------------------------------
         elif map_id == 13:  # Route 2 South & North
+            if (badges & RAMMap.BADGE_THUNDER) != 0 and x > 4:
+                # Returning from Diglett's Cave:
+                if (x, y) == (5, 11):
+                    return MapSubgoal((5, 10), "cut_route2_tree", "Cut down tree blocking Route 2 north path", is_interaction=True)
+                if y >= 10:
+                    wp = self._bfs_next_waypoint(13, (x, y), (5, 11), lookahead=1, can_cut=can_cut)
+                    return MapSubgoal(wp, "approach_route2_tree", f"Advance towards Route 2 cut tree via {wp}")
+                else:
+                    if (x, y) in ((8, 0), (9, 0)):
+                        return MapSubgoal((x, -1), "enter_pewter_from_route2", "Step north into Pewter City", is_warp=True)
+                    wp = self._bfs_next_waypoint(13, (x, y), (8, 0), lookahead=1, can_cut=can_cut)
+                    return MapSubgoal(wp, "route2_north_to_pewter", f"Advance north along Route 2 towards Pewter City via {wp}")
+
             if y > 43:
                 if (x, y) == (3, 44):
                     return MapSubgoal((3, 43), "enter_south_gate", "Step into Viridian Forest South Gatehouse", is_warp=True)
@@ -771,7 +790,10 @@ class WorldGraphNavigator:
                     return MapSubgoal(wp, "approach_vermilion_gym", f"Advance towards Vermilion Gym entrance via {wp}")
             else:
                 # Thunder Badge acquired! Route to Route 11 / Diglett's Cave / Route 9
-                return MapSubgoal((39, 9), "east_to_route11", "Advance east onto Route 11 towards Diglett's Cave")
+                if (x, y) == (39, 14):
+                    return MapSubgoal((40, 14), "enter_route11", "Step east onto Route 11 towards Diglett's Cave", is_warp=True)
+                wp = self._bfs_next_waypoint(5, (x, y), (39, 14), lookahead=1, can_cut=can_cut)
+                return MapSubgoal(wp, "east_to_route11", f"Advance east onto Route 11 towards Diglett's Cave via {wp}")
 
         elif map_id == 94:  # Vermilion Dock
             has_cut = (RAMMap.ITEM_HM01_CUT in bag_items) or can_cut
@@ -837,7 +859,35 @@ class WorldGraphNavigator:
                 return MapSubgoal(wp, "approach_gym_exit", f"Walk south towards Vermilion Gym exit via {wp}")
 
         # ---------------------------------------------------------------------
-        # 8. ROUTE 9, ROUTE 10, ROCK TUNNEL, LAVENDER TOWN (Maps 20, 21, 82, 232, 4)
+        # 8. ROUTE 11 & DIGLETT'S CAVE TO ROUTE 2 (Maps 22, 85, 197, 46, 13)
+        # ---------------------------------------------------------------------
+        elif map_id == 22:  # Route 11
+            # Diglett's Cave entrance building at (4, 5)
+            if (x, y) == (4, 5):
+                return MapSubgoal((4, 4), "enter_digletts_cave_route11", "Step north through door into Diglett's Cave Entrance", is_warp=True)
+            wp = self._bfs_next_waypoint(22, (x, y), (4, 5), lookahead=1, can_cut=can_cut)
+            return MapSubgoal(wp, "approach_digletts_cave_route11", f"Advance towards Diglett's Cave Entrance via {wp}")
+
+        elif map_id == 85:  # Diglett's Cave Route 11 Entrance Building
+            if (x, y) == (4, 4):
+                return MapSubgoal((4, 4), "descend_digletts_cave", "Descend stairs into Diglett's Cave", is_warp=True)
+            wp = self._bfs_next_waypoint(85, (x, y), (4, 4), lookahead=1)
+            return MapSubgoal(wp, "approach_cave_stairs", f"Advance towards cave stairs via {wp}")
+
+        elif map_id == 197:  # Diglett's Cave (Main cavern)
+            if (x, y) in ((5, 5), (5, 4)):
+                return MapSubgoal((5, 4), "ascend_to_route2", "Ascend ladder into Route 2 exit", is_warp=True)
+            wp = self._bfs_next_waypoint(197, (x, y), (5, 5), lookahead=2)
+            return MapSubgoal(wp, "traverse_digletts_cave", f"Traverse Diglett's Cave north towards Route 2 via {wp}")
+
+        elif map_id == 46:  # Diglett's Cave Route 2 Entrance Building
+            if (x, y) in ((2, 7), (3, 7)):
+                return MapSubgoal((x, 8), "exit_digletts_cave_route2", "Step south onto Route 2", is_warp=True)
+            wp = self._bfs_next_waypoint(46, (x, y), (2, 7), lookahead=1)
+            return MapSubgoal(wp, "approach_route2_exit", f"Advance towards Route 2 door via {wp}")
+
+        # ---------------------------------------------------------------------
+        # 9. ROUTE 9, ROUTE 10, ROCK TUNNEL, LAVENDER TOWN (Maps 20, 21, 82, 232, 4)
         # ---------------------------------------------------------------------
         elif map_id == 20:  # Route 9
             return MapSubgoal((60, 8), "advance_route9_east", "Advance east along Route 9 towards Rock Tunnel")

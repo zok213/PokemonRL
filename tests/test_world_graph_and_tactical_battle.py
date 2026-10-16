@@ -394,7 +394,69 @@ def test_world_graph_vermilion_city_and_gym():
     # 10. In Vermilion City with Thunder Badge: advance east to Route 11 / Diglett's Cave
     sg10 = nav.get_subgoal(5, 12, 19, badges=7, party_moves=[15])
     assert sg10.goal_name == "east_to_route11"
-    assert sg10.target_coord == (39, 9)
+    assert sg10.target_coord == (12, 20) # Step down from gym door mat towards (39, 14)
+
+    sg10_border = nav.get_subgoal(5, 39, 14, badges=7, party_moves=[15])
+    assert sg10_border.goal_name == "enter_route11"
+    assert sg10_border.is_warp is True
+
+
+def test_world_graph_digletts_cave_and_route2():
+    """Verify topological navigation across Route 11, Diglett's Cave, and Route 2."""
+    nav = WorldGraphNavigator()
+
+    # 1. On Route 11 towards Diglett's Cave entrance building at (4, 5)
+    sg1 = nav.get_subgoal(22, 0, 6, badges=7, party_moves=[15])
+    assert sg1.goal_name == "approach_digletts_cave_route11"
+
+    sg1_door = nav.get_subgoal(22, 4, 5, badges=7, party_moves=[15])
+    assert sg1_door.goal_name == "enter_digletts_cave_route11"
+    assert sg1_door.target_coord == (4, 4)
+    assert sg1_door.is_warp is True
+
+    # 2. Inside Route 11 entrance building (Map 85): descend stairs at (4, 4)
+    sg2 = nav.get_subgoal(85, 2, 7, badges=7, party_moves=[15])
+    assert sg2.goal_name == "approach_cave_stairs"
+
+    sg2_stairs = nav.get_subgoal(85, 4, 4, badges=7, party_moves=[15])
+    assert sg2_stairs.goal_name == "descend_digletts_cave"
+    assert sg2_stairs.is_warp is True
+
+    # 3. Inside Diglett's Cave (Map 197): traverse cavern to northern ladder at (5, 5)
+    sg3 = nav.get_subgoal(197, 37, 31, badges=7, party_moves=[15])
+    assert sg3.goal_name == "traverse_digletts_cave"
+
+    sg3_ladder = nav.get_subgoal(197, 5, 5, badges=7, party_moves=[15])
+    assert sg3_ladder.goal_name == "ascend_to_route2"
+    assert sg3_ladder.target_coord == (5, 4)
+    assert sg3_ladder.is_warp is True
+
+    # 4. Inside Route 2 entrance building (Map 46): exit to Route 2 at (2, 7)
+    sg4 = nav.get_subgoal(46, 4, 4, badges=7, party_moves=[15])
+    assert sg4.goal_name == "approach_route2_exit"
+
+    sg4_door = nav.get_subgoal(46, 2, 7, badges=7, party_moves=[15])
+    assert sg4_door.goal_name == "exit_digletts_cave_route2"
+    assert sg4_door.target_coord == (2, 8)
+    assert sg4_door.is_warp is True
+
+    # 5. On Route 2: cut tree at (5, 10)
+    sg5 = nav.get_subgoal(13, 12, 10, badges=7, party_moves=[15])
+    assert sg5.goal_name == "approach_route2_tree"
+
+    sg5_cut = nav.get_subgoal(13, 5, 11, badges=7, party_moves=[15])
+    assert sg5_cut.goal_name == "cut_route2_tree"
+    assert sg5_cut.target_coord == (5, 10)
+    assert sg5_cut.is_interaction is True
+
+    # 6. Past cut tree on Route 2: advance north to Pewter City at (8, 0)
+    sg6 = nav.get_subgoal(13, 5, 8, badges=7, party_moves=[15])
+    assert sg6.goal_name == "route2_north_to_pewter"
+
+    sg6_pewter = nav.get_subgoal(13, 8, 0, badges=7, party_moves=[15])
+    assert sg6_pewter.goal_name == "enter_pewter_from_route2"
+    assert sg6_pewter.target_coord == (8, -1)
+    assert sg6_pewter.is_warp is True
 
 
 # =============================================================================
