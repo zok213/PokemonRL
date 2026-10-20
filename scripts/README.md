@@ -8,6 +8,7 @@ This directory contains standalone execution, benchmark, diagnostic, and milesto
 
 | Script | Purpose | Usage |
 | :--- | :--- | :--- |
+| `compare_baseline_v2_models_demo.py` | **Live Dual Game Boy Showdown**: Runs Their Baseline V2 vs. Our Retrained Model concurrently in lockstep with real-time telemetry and white-bg visual capture | `python scripts/compare_baseline_v2_models_demo.py --steps 100` |
 | `train.py` | Launches PPO training pipeline using native or baseline environments | `python scripts/train.py --steps 100000` |
 | `evaluate.py` | Multi-episode policy evaluation and performance logging | `python scripts/evaluate.py --episodes 5` |
 | `benchmark_throughput.py` | Measures raw emulation vs vectorized step throughput (SPS) | `python scripts/benchmark_throughput.py` |

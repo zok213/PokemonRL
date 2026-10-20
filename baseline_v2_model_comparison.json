@@ -1,38 +1,38 @@
 {
   "model_a": {
     "model_name": "Model 1: Baseline V2 Pretrained (26.2M Steps)",
-    "steps_simulated": 5,
-    "total_reward": 0.5,
-    "unique_tiles_count": 5,
-    "wall_bumps": 0,
-    "wall_bump_rate": 0.0,
+    "steps_simulated": 100,
+    "total_reward": 11.0,
+    "unique_tiles_count": 30,
+    "wall_bumps": 4,
+    "wall_bump_rate": 4.0,
     "menu_opens": 0,
-    "action_entropy": 0.0,
+    "action_entropy": 1.7104765865731792,
     "final_position": {
-      "x": 5,
-      "y": 8,
-      "map_id": 40,
-      "map_name": "Oak's Lab"
+      "x": 3,
+      "y": 5,
+      "map_id": 39,
+      "map_name": "Blues House"
     },
-    "last_action": "DOWN",
-    "sps": 4.577449325393552
+    "last_action": "A",
+    "sps": 18.308134918642956
   },
   "model_b": {
-    "model_name": "Model 2: Our Retrained Baseline V2 (Fine-Tuned)",
-    "steps_simulated": 5,
-    "total_reward": 0.5,
-    "unique_tiles_count": 5,
-    "wall_bumps": 0,
-    "wall_bump_rate": 0.0,
-    "menu_opens": 0,
-    "action_entropy": 0.7219280948873623,
+    "model_name": "Model 2: Our Retrained Baseline V2",
+    "steps_simulated": 100,
+    "total_reward": 17.1,
+    "unique_tiles_count": 52,
+    "wall_bumps": 17,
+    "wall_bump_rate": 17.0,
+    "menu_opens": 2,
+    "action_entropy": 2.4778227795300642,
     "final_position": {
-      "x": 4,
-      "y": 7,
-      "map_id": 40,
-      "map_name": "Oak's Lab"
+      "x": 10,
+      "y": 33,
+      "map_id": 12,
+      "map_name": "Route 1"
     },
-    "last_action": "DOWN",
-    "sps": 4.577449325393552
+    "last_action": "B",
+    "sps": 18.308134918642956
   }
 }

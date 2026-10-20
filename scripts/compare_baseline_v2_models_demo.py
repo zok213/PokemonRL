@@ -4,7 +4,7 @@ compare_baseline_v2_models_demo.py — Real Dual Empirical Showdown of Baseline 
 Conducts an authentic head-to-head evaluation on real Game Boy hardware (via PyBoy)
 between two Baseline V2 models running SIMULTANEOUSLY side-by-side in real time:
   - Model 1: "Their Pretrained Baseline V2" (Peter Whidden / Pleines et al., 26.2M steps PPO)
-  - Model 2: "Our Retrained Baseline V2" (Retrained / Fine-Tuned Baseline V2 Checkpoint)
+  - Model 2: "Our Retrained Baseline V2" (Our Retrained Baseline V2 Model)
 
 Visual Interface:
   - Live animated dual split-screen Game Boy window with authentic DMG bezels.
@@ -404,7 +404,7 @@ def run_dual_interactive_rollout(
         }
 
         state_b = {
-            "model_name": "Model 2: Our Retrained Baseline V2 (Fine-Tuned)",
+            "model_name": "Model 2: Our Retrained Baseline V2",
             "steps_simulated": len(coords_b),
             "total_reward": rew_b,
             "unique_tiles_count": len(unique_b),
@@ -498,7 +498,7 @@ def main():
     print(f"  Initial State:{state_path.name}")
     print(f"  Steps / Model:{args.steps} (Running side-by-side in lockstep)")
     print(f"  Model 1:      {model_a_path.name} (Their Pretrained 26.2M steps)")
-    print(f"  Model 2:      {model_b_path.name} (We Retrained / Fine-Tuned)")
+    print(f"  Model 2:      {model_b_path.name} (Our Retrained Baseline V2 Model)")
     print(f"  Sampling:     {'Greedy Deterministic' if args.deterministic else 'Categorical Softmax Stochastic'}")
     print("=" * 80, flush=True)
 
