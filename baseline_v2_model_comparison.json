@@ -1,0 +1,58 @@
+{
+  "model_a": {
+    "model_name": "Model 1: Their Pretrained (26.2M steps)",
+    "model_path": "D:\\Gitrepo\\PokemonRL\\external\\PokemonRedExperiments\\v2\\runs\\poke_26214400.zip",
+    "steps_simulated": 100,
+    "elapsed_seconds": 1.2628216743469238,
+    "sps": 79.18774442299276,
+    "total_reward": 15.6,
+    "unique_tiles_count": 36,
+    "wall_bumps": 8,
+    "wall_bump_rate": 8.0,
+    "menu_opens": 0,
+    "action_counts": {
+      "DOWN": 14,
+      "LEFT": 6,
+      "RIGHT": 13,
+      "UP": 15,
+      "A": 51,
+      "B": 1,
+      "START": 0
+    },
+    "action_entropy": 1.9957010735383083,
+    "final_position": {
+      "x": 16,
+      "y": 5,
+      "map_id": 0,
+      "map_name": "Pallet Town"
+    }
+  },
+  "model_b": {
+    "model_name": "Model 2: We Retrained (Fine-Tuned)",
+    "model_path": "D:\\Gitrepo\\PokemonRL\\models\\baseline_v2_retrained.zip",
+    "steps_simulated": 100,
+    "elapsed_seconds": 1.2966668605804443,
+    "sps": 77.12081108885259,
+    "total_reward": 18.2,
+    "unique_tiles_count": 63,
+    "wall_bumps": 12,
+    "wall_bump_rate": 12.0,
+    "menu_opens": 0,
+    "action_counts": {
+      "DOWN": 16,
+      "LEFT": 17,
+      "RIGHT": 18,
+      "UP": 27,
+      "A": 17,
+      "B": 5,
+      "START": 0
+    },
+    "action_entropy": 2.4636162931614884,
+    "final_position": {
+      "x": 10,
+      "y": 34,
+      "map_id": 12,
+      "map_name": "Route 1"
+    }
+  }
+}
