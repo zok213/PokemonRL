@@ -76,45 +76,19 @@ def calculate_entropy(action_counts: Dict[str, int]) -> float:
 
 
 def run_model_rollout(
-    model_path: Path,
+    model: PPO,
+    env: RedGymEnv,
     model_name: str,
-    rom_path: Path,
-    state_path: Path,
-    num_steps: int = 200,
-    headless: bool = True,
+    tag: str,
+    num_steps: int = 100,
     deterministic: bool = False,
     seed: int = 42,
+    is_interactive: bool = True,
 ) -> Dict[str, Any]:
     """
     Executes a real Game Boy rollout for a single model and captures telemetry.
     """
-    print(f"\n[+] Running {model_name} on Game Boy ({num_steps} steps)...")
-
-    sess_dir = REPO_ROOT / f"session_eval_{int(time.time())}"
-    env_config = {
-        "headless": headless,
-        "save_final_state": False,
-        "early_stop": False,
-        "action_freq": 24,
-        "init_state": str(state_path),
-        "max_steps": num_steps + 100,
-        "print_rewards": False,
-        "save_video": False,
-        "fast_video": True,
-        "session_path": sess_dir,
-        "gb_path": str(rom_path),
-        "debug": False,
-        "sim_frame_dist": 2000000.0,
-        "extra_buttons": False,
-    }
-
-    env = RedGymEnv(env_config)
-    if headless:
-        env.pyboy.set_emulation_speed(0)
-
-    # Load SB3 PPO model
-    custom_objs = {"lr_schedule": 1e-4, "clip_range": 0.2, "tensorboard_log": None}
-    model = PPO.load(str(model_path), env=env, custom_objects=custom_objs)
+    print(f"\n[+] Starting {model_name} on Game Boy ({num_steps} steps)...", flush=True)
 
     obs, info = env.reset()
 
@@ -150,6 +124,7 @@ def run_model_rollout(
         cur_y = env.read_m(0xD361)
         cur_map = env.read_m(0xD35E)
         cur_pos = (cur_x, cur_y, cur_map)
+        map_name = MAP_NAMES.get(cur_map, f"Map_{cur_map}")
 
         coords_history.append(cur_pos)
         unique_coords.add(cur_pos)
@@ -160,8 +135,14 @@ def run_model_rollout(
 
         last_pos = cur_pos
 
-        if (step + 1) % 50 == 0 or step == num_steps - 1:
-            print(f"    Step {step + 1}/{num_steps}: Pos=({cur_x},{cur_y}, Map={cur_map}) | Unique Tiles={len(unique_coords)} | Return={total_reward:.2f}")
+        # Real-time console telemetry
+        log_freq = 5 if is_interactive else 25
+        if (step + 1) % log_freq == 0 or step == 0 or step == num_steps - 1:
+            print(
+                f"  [{tag}] Step {step + 1:3d}/{num_steps} | Map: {map_name:<14} Pos=({cur_x:2d},{cur_y:2d}) | "
+                f"Joypad: {act_name:<5} | Return: {total_reward:+.2f} | Unique: {len(unique_coords):2d}",
+                flush=True,
+            )
 
         if terminated or truncated:
             break
@@ -174,7 +155,6 @@ def run_model_rollout(
         raw_screen = env.pyboy.screen.ndarray  # (144, 160, 3)
         final_screen_img = Image.fromarray(raw_screen.astype(np.uint8))
     except Exception:
-        # Fallback to empty image if screen grab fails
         final_screen_img = Image.new("RGB", (160, 144), color=(30, 30, 30))
 
     final_x = env.read_m(0xD362)
@@ -182,14 +162,11 @@ def run_model_rollout(
     final_map = env.read_m(0xD35E)
     map_name = MAP_NAMES.get(final_map, f"Map_{final_map}")
 
-    env.close()
-
     wall_bump_rate = (wall_bumps / len(coords_history)) * 100.0 if coords_history else 0.0
     entropy = calculate_entropy(action_counts)
 
     return {
         "model_name": model_name,
-        "model_path": str(model_path),
         "steps_simulated": len(coords_history),
         "elapsed_seconds": elapsed,
         "sps": sps,
@@ -410,20 +387,23 @@ def print_comparison_table(res_a: Dict[str, Any], res_b: Dict[str, Any]):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Compare Baseline V2 Models on Game Boy")
-    parser.add_argument("--steps", type=int, default=150, help="Number of Joypad steps per model")
-    parser.add_argument("--headless", action="store_true", default=True, help="Run headless (default: True)")
-    parser.add_argument("--render", action="store_true", help="Open SDL2 window to watch live emulation")
-    parser.add_argument("--model-a", type=str, default=None, help="Path to Model 1 (Their Pretrained)")
-    parser.add_argument("--deterministic", action="store_true", help="Use greedy argmax action selection instead of categorical sampling")
+    parser = argparse.ArgumentParser(description="Compare Baseline V2 Models on Real Game Boy")
+    parser.add_argument("--steps", type=int, default=100, help="Number of Joypad steps per model (default: 100)")
+    parser.add_argument("--headless", action="store_true", default=False, help="Run in headless background mode (default: False, opens interactive Game Boy window)")
+    parser.add_argument("--render", action="store_true", default=False, help="Explicitly enable interactive window (same as default)")
+    parser.add_argument("--speed", type=int, default=6, help="Emulation speed multiplier for interactive window (default: 6, smooth visible gameplay)")
+    parser.add_argument("--model", type=str, choices=["compare", "pretrained", "retrained"], default="compare", help="Mode: 'compare' runs both sequentially, 'pretrained' or 'retrained' runs single model")
+    parser.add_argument("--deterministic", action="store_true", help="Use greedy argmax action selection instead of categorical softmax")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for action sampling")
+    parser.add_argument("--model-a", type=str, default=None, help="Path to Model 1 (Their Pretrained)")
     parser.add_argument("--model-b", type=str, default=None, help="Path to Model 2 (We Retrained)")
     parser.add_argument("--state", type=str, default=None, help="Initial Game Boy save state")
     parser.add_argument("--output-img", type=str, default="docs/assets/baseline_v2_model_comparison.png", help="Path to save output visual image")
     parser.add_argument("--output-json", type=str, default="baseline_v2_model_comparison.json", help="Path to save JSON results")
     args = parser.parse_args()
 
-    is_headless = not args.render if args.render else args.headless
+    # By default, runs with INTERACTIVE GAME BOY WINDOW! Only headless if --headless passed.
+    is_headless = args.headless
 
     # 1. Resolve ROM path
     rom_candidates = [
@@ -459,38 +439,97 @@ def main():
         sys.exit(1)
 
     print("=" * 80)
-    print("  POKÉMON RED BASELINE V2: COMPARATIVE DEMO RUNNER")
+    print("  POKÉMON RED BASELINE V2: INTERACTIVE COMPARISON RUNNER")
+    print(f"  Mode:         {'HEADLESS BACKGROUND' if is_headless else 'LIVE INTERACTIVE GAME BOY WINDOW (SDL2)'}")
+    print(f"  Speed:        {'Unthrottled (Max CPU)' if is_headless else f'{args.speed}x Emulation Speed'}")
     print(f"  ROM:          {rom_path.name}")
     print(f"  Initial State:{state_path.name}")
     print(f"  Steps / Model:{args.steps}")
-    print(f"  Model 1:      {model_a_path.name} (Their Pretrained)")
-    print(f"  Model 2:      {model_b_path.name} (We Retrained)")
+    print(f"  Model 1:      {model_a_path.name} (Their Pretrained 26.2M steps)")
+    print(f"  Model 2:      {model_b_path.name} (We Retrained / Fine-Tuned)")
     print(f"  Sampling:     {'Greedy Deterministic' if args.deterministic else 'Categorical Softmax Stochastic'}")
-    print(f"  Mode:         {'Headless' if is_headless else 'Live Interactive Window'}")
-    print("=" * 80)
+    print("=" * 80, flush=True)
 
-    # Execute Model A
+    sess_dir = REPO_ROOT / f"session_eval_{int(time.time())}"
+    env_config = {
+        "headless": is_headless,
+        "save_final_state": False,
+        "early_stop": False,
+        "action_freq": 24,
+        "init_state": str(state_path),
+        "max_steps": args.steps * 2 + 200,
+        "print_rewards": False,
+        "save_video": False,
+        "fast_video": True,
+        "session_path": sess_dir,
+        "gb_path": str(rom_path),
+        "debug": False,
+        "sim_frame_dist": 2000000.0,
+        "extra_buttons": False,
+    }
+
+    env = RedGymEnv(env_config)
+    if is_headless:
+        env.pyboy.set_emulation_speed(0)
+    else:
+        env.pyboy.set_emulation_speed(args.speed)
+
+    custom_objs = {"lr_schedule": 0, "clip_range": 0, "tensorboard_log": None}
+    print("[*] Loading Model 1 neural network weights...")
+    model_a = PPO.load(str(model_a_path), env=env, custom_objects=custom_objs)
+    print("[*] Loading Model 2 neural network weights...")
+    model_b = PPO.load(str(model_b_path), env=env, custom_objects=custom_objs)
+
+    if args.model == "pretrained":
+        res_a = run_model_rollout(model_a, env, "Model 1: Their Pretrained (26.2M steps)", "Model 1: Pretrained", num_steps=args.steps, deterministic=args.deterministic, seed=args.seed, is_interactive=not is_headless)
+        env.close()
+        os._exit(0)
+    elif args.model == "retrained":
+        res_b = run_model_rollout(model_b, env, "Model 2: We Retrained (Fine-Tuned)", "Model 2: Retrained ", num_steps=args.steps, deterministic=args.deterministic, seed=args.seed, is_interactive=not is_headless)
+        env.close()
+        os._exit(0)
+
+    # Step 1: Model 1 Rollout
+    print("\n" + "=" * 80)
+    print("  PHASE 1 / 2: MODEL 1 — THEIR PRETRAINED BASELINE V2 (26.2M STEPS)")
+    print(f"  Watching {model_a_path.name} play live on Game Boy hardware...")
+    print("=" * 80, flush=True)
+
     res_a = run_model_rollout(
-        model_path=model_a_path,
+        model=model_a,
+        env=env,
         model_name="Model 1: Their Pretrained (26.2M steps)",
-        rom_path=rom_path,
-        state_path=state_path,
+        tag="Model 1: Pretrained",
         num_steps=args.steps,
-        headless=is_headless,
         deterministic=args.deterministic,
         seed=args.seed,
+        is_interactive=not is_headless,
     )
 
-    # Execute Model B
+    if not is_headless:
+        print("\n" + "-" * 80)
+        print("  [✓] Phase 1 Complete! Model 1 finished its rollout.")
+        print("  [↻] Pausing 1.5 seconds then resetting Game Boy to Pallet Town for Model 2...")
+        print("-" * 80 + "\n", flush=True)
+        time.sleep(1.5)
+
+    # Step 2: Reset & Model 2 Rollout
+    obs, info = env.reset()
+
+    print("=" * 80)
+    print("  PHASE 2 / 2: MODEL 2 — OUR RETRAINED BASELINE V2 (FINE-TUNED CHECKPOINT)")
+    print(f"  Watching {model_b_path.name} play live on Game Boy hardware...")
+    print("=" * 80, flush=True)
+
     res_b = run_model_rollout(
-        model_path=model_b_path,
+        model=model_b,
+        env=env,
         model_name="Model 2: We Retrained (Fine-Tuned)",
-        rom_path=rom_path,
-        state_path=state_path,
+        tag="Model 2: Retrained ",
         num_steps=args.steps,
-        headless=is_headless,
         deterministic=args.deterministic,
         seed=args.seed,
+        is_interactive=not is_headless,
     )
 
     # Print Comparison Table
@@ -503,15 +542,23 @@ def main():
         output_path=REPO_ROOT / args.output_img,
     )
 
-    # Save JSON metrics (excluding image object)
+    # Save JSON metrics
     json_out = {
         "model_a": {k: v for k, v in res_a.items() if k != "screen_img"},
         "model_b": {k: v for k, v in res_b.items() if k != "screen_img"},
     }
     with open(REPO_ROOT / args.output_json, "w") as f:
         json.dump(json_out, f, indent=2)
-    print(f"[+] Saved JSON metrics to: {args.output_json}\n")
+    print(f"[+] Saved JSON metrics to: {args.output_json}\n", flush=True)
+
+    try:
+        env.close()
+    except Exception:
+        pass
+
+    os._exit(0)
 
 
 if __name__ == "__main__":
     main()
+
