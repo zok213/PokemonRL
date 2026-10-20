@@ -1,58 +1,38 @@
 {
   "model_a": {
-    "model_name": "Model 1: Their Pretrained (26.2M steps)",
-    "model_path": "D:\\Gitrepo\\PokemonRL\\external\\PokemonRedExperiments\\v2\\runs\\poke_26214400.zip",
-    "steps_simulated": 100,
-    "elapsed_seconds": 1.737919569015503,
-    "sps": 57.54006214260423,
-    "total_reward": 11.2,
-    "unique_tiles_count": 32,
-    "wall_bumps": 8,
-    "wall_bump_rate": 8.0,
+    "model_name": "Model 1: Baseline V2 Pretrained (26.2M Steps)",
+    "steps_simulated": 5,
+    "total_reward": 0.5,
+    "unique_tiles_count": 5,
+    "wall_bumps": 0,
+    "wall_bump_rate": 0.0,
     "menu_opens": 0,
-    "action_counts": {
-      "DOWN": 12,
-      "LEFT": 10,
-      "RIGHT": 6,
-      "UP": 12,
-      "A": 58,
-      "B": 2,
-      "START": 0
-    },
-    "action_entropy": 1.8785456528956497,
-    "final_position": {
-      "x": 3,
-      "y": 5,
-      "map_id": 39,
-      "map_name": "Blues House"
-    }
-  },
-  "model_b": {
-    "model_name": "Model 2: We Retrained (Fine-Tuned)",
-    "model_path": "D:\\Gitrepo\\PokemonRL\\models\\baseline_v2_retrained.zip",
-    "steps_simulated": 100,
-    "elapsed_seconds": 1.1318418979644775,
-    "sps": 88.35156233378672,
-    "total_reward": 19.5,
-    "unique_tiles_count": 75,
-    "wall_bumps": 4,
-    "wall_bump_rate": 4.0,
-    "menu_opens": 0,
-    "action_counts": {
-      "DOWN": 19,
-      "LEFT": 20,
-      "RIGHT": 12,
-      "UP": 30,
-      "A": 15,
-      "B": 4,
-      "START": 0
-    },
-    "action_entropy": 2.4040680751325985,
+    "action_entropy": 0.0,
     "final_position": {
       "x": 5,
-      "y": 25,
-      "map_id": 12,
-      "map_name": "Route 1"
-    }
+      "y": 8,
+      "map_id": 40,
+      "map_name": "Oak's Lab"
+    },
+    "last_action": "DOWN",
+    "sps": 4.577449325393552
+  },
+  "model_b": {
+    "model_name": "Model 2: Our Retrained Baseline V2 (Fine-Tuned)",
+    "steps_simulated": 5,
+    "total_reward": 0.5,
+    "unique_tiles_count": 5,
+    "wall_bumps": 0,
+    "wall_bump_rate": 0.0,
+    "menu_opens": 0,
+    "action_entropy": 0.7219280948873623,
+    "final_position": {
+      "x": 4,
+      "y": 7,
+      "map_id": 40,
+      "map_name": "Oak's Lab"
+    },
+    "last_action": "DOWN",
+    "sps": 4.577449325393552
   }
 }
