@@ -37,7 +37,7 @@ Target Venue: IEEE Transactions on Games / IEEE Conference on Games (CoG)}
 \maketitle
 
 \begin{abstract}
-Learning to play commercial, turn-based role-playing games (RPGs) directly from discrete joypad inputs represents a grand challenge for model-free reinforcement learning due to extreme credit horizons ($K > 25{,}000$ steps), dense non-Markovian subgoals, complex dialogue/menu state-machines, and deceptive reward landscapes. In this work, we present an exhaustive, from-scratch reimplementation and empirical reproduction of the foundational Baseline V2 framework introduced by Pleines et al. (IEEE CoG 2025). We formalize the game as an 8-kilobyte WRAM Partially Observable Markov Decision Process (POMDP), provide a modular, high-throughput PyTorch implementation of the multi-modal Actor-Critic architecture, and replicate all six Table~3 ablation variants (including the catastrophic Bulbasaur Mt.~Moon Leech Life failure mode with $399.33 \pm 177.1$ farmed heals). Furthermore, we design and deploy a synchronized, dual lockstep live empirical showdown between ``Their Baseline V2'' (26.2M steps PPO) and ``Our Retrained Model'' executed on real Game Boy emulation (PyBoy). In a 100-step empirical test, Our Retrained Model demonstrates superior exploratory coverage ($+73.3\%$ unique coordinates discovered) and directional velocity, successfully breaking the Pallet Town perimeter into Route~1, whereas the published baseline degenerates into button-spam oscillations inside domestic interior structures. Finally, we provide a senior research critique establishing Theorem~1 (The Horizon Collapse Theorem), proving that Generalized Advantage Estimation attenuates long-horizon gradients by $\approx 10^{-590}$, and outline a concrete four-pillar blueprint (C/Rust vectorization, zero-leak hardware action masking, Automaton Reward Machines, and Go-Explore frontier archiving) to bridge the gap between early-game exploration and full RPG completion.
+Learning to play commercial, turn-based role-playing games (RPGs) directly from discrete joypad inputs represents a grand challenge for model-free reinforcement learning due to extreme credit horizons ($K > 25{,}000$ steps), dense non-Markovian subgoals, complex dialogue/menu state-machines, and deceptive reward landscapes. In this work, we present an exhaustive, from-scratch reimplementation and empirical reproduction of the foundational Baseline V2 framework introduced by Pleines et al. (IEEE CoG 2025). We formalize the game as an 8-kilobyte WRAM Partially Observable Markov Decision Process (POMDP), provide a modular, high-throughput PyTorch implementation of the multi-modal Actor-Critic architecture, and replicate all six Table~3 ablation variants (including the catastrophic Bulbasaur Mt.~Moon Leech Life failure mode with $399.33 \pm 177.1$ farmed heals). Furthermore, we design and deploy a synchronized, dual lockstep live empirical showdown between ``Their Baseline V2'' (26.2M steps PPO) and ``Our Retrained Model'' executed on real Game Boy emulation (PyBoy) spanning both 100-step initial exit and 10,000-step long-horizon navigation. In the 10,000-step benchmark, Our Retrained Model demonstrates superior navigational robustness with 12.0\% fewer wall collisions ($16.9\%$ vs. $19.2\%$) and successfully penetrates deep into the Viridian Forest labyrinth ($\text{wCurMap} = 51$ at $(27, 33)$), whereas the published baseline cycles back into Route~1 ledges after early exploration. Finally, we provide a senior research critique establishing Theorem~1 (The Horizon Collapse Theorem), proving that Generalized Advantage Estimation attenuates long-horizon gradients by $\approx 10^{-590}$, and outline a concrete four-pillar blueprint (C/Rust vectorization, zero-leak hardware action masking, Automaton Reward Machines, and Go-Explore frontier archiving) to bridge the gap between early-game exploration and full RPG completion.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -45,7 +45,7 @@ Deep Reinforcement Learning, Proximal Policy Optimization (PPO), Pok{\'e}mon Red
 \end{IEEEkeywords}
 
 \section{Introduction}
-\IEEEPARSTART{C}{ommercial} role-playing games (RPGs) such as \textit{Pok{\'e}mon Red} (Game Boy, 1996) represent an archetypal class of long-horizon sequential decision problems that expose the mathematical boundaries of contemporary deep reinforcement learning (DRL) algorithms~\cite{pleines2025playing, whidden2023pokemon}. Unlike Atari 2600 arcade environments~\cite{mnih2015human} or continuous control benchmarks~\cite{todorov2012mujoco}, an RPG features:
+\IEEEPARstart{C}{ommercial} role-playing games (RPGs) such as \textit{Pok{\'e}mon Red} (Game Boy, 1996) represent an archetypal class of long-horizon sequential decision problems that expose the mathematical boundaries of contemporary deep reinforcement learning (DRL) algorithms~\cite{pleines2025playing, whidden2023pokemon}. Unlike Atari 2600 arcade environments~\cite{mnih2015human} or continuous control benchmarks~\cite{todorov2012mujoco}, an RPG features:
 \begin{enumerate}
     \item \textbf{Extreme Trajectory Lengths:} Completing the primary quest line requires over $300{,}000$ discrete joypad actuations.
     \item \textbf{Deceptive Topological Bottlenecks:} The overworld is punctuated by one-way ledges, warp portals, dark labyrinths (e.g., Rock Tunnel), and step-constrained search spaces (the 500-step Safari Zone wall).
@@ -121,7 +121,8 @@ Unlike pixel-only arcade environments, Baseline V2 explicitly interfaces with th
 \centering
 \caption{Game Boy Hardware Memory Map (WRAM) Registers Leveraged in Baseline V2 State and Reward Computation.}
 \label{tab:wram_map}
-\begin{tabular}{llcl}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{llcp{3.8cm}}
 \toprule
 \textbf{Address} & \textbf{Symbol} & \textbf{Size} & \textbf{Semantic Function in RL} \\
 \midrule
@@ -136,7 +137,8 @@ Unlike pixel-only arcade environments, Baseline V2 explicitly interfaces with th
 \texttt{0xD057} & \texttt{wIsInBattle} & 1 Byte & Combat Flag (0: Overworld, $\ne 0$: Battle) \\
 \texttt{0xCD6B} & \texttt{wJoyIgnore} & 1 Byte & Hardware Joypad Input Suppression Mask \\
 \bottomrule
-\end{tabular}
+\end{tabular}%
+}
 \end{table}
 
 \subsection{Execution Lifecycle \& Flow Architecture}
@@ -147,9 +149,9 @@ The interaction loop between the deep RL agent and the Game Boy hardware emulato
 \begin{tikzpicture}[
     node distance=0.8cm and 1.2cm,
     font=\sffamily\scriptsize,
-    block/.style={rectangle, draw=black!70, rounded corners=2pt, fill=blue!8, text centered, minimum width=3.0cm, minimum height=0.65cm},
-    hw/.style={rectangle, draw=black!80, fill=green!12, text centered, minimum width=3.0cm, minimum height=0.65cm, font=\bfseries\scriptsize},
-    eval/.style={rectangle, draw=black!80, fill=orange!15, text centered, minimum width=3.0cm, minimum height=0.65cm},
+    block/.style={rectangle, draw=black!70, rounded corners=2pt, fill=blue!8, align=center, minimum width=3.0cm, minimum height=0.65cm},
+    hw/.style={rectangle, draw=black!80, fill=green!12, align=center, minimum width=3.0cm, minimum height=0.65cm, font=\bfseries\scriptsize},
+    eval/.style={rectangle, draw=black!80, fill=orange!15, align=center, minimum width=3.0cm, minimum height=0.65cm},
     arrow/.style={->, thick, >=stealth}
 ]
 
@@ -192,26 +194,26 @@ The reward function is formulated as a linear combination of four distinct terms
 R_t = R_{\text{event}}(s_t) + R_{\text{nav}}(s_t) + R_{\text{heal}}(s_t) + R_{\text{lvl}}(s_t)
 \end{equation}
 
-\subsubsection{Storyline Event Progression Reward ($R_{\text{event}}$)}
+\subsubsection{Storyline Event Progression Reward \texorpdfstring{($R_{\text{event}}$)}{(R\_event)}}
 Rewards setting global progression event bits:
 \begin{equation}
 R_{\text{event}}(s_t) = 2.0 \times \max\left(0, \sum_{i=\text{start}}^{\text{end}} \text{popcount}(\text{RAM}[i]) - N_{\text{events}}^{\max}\right)
 \end{equation}
 
-\subsubsection{Coordinate Novelty Exploration Reward ($R_{\text{nav}}$)}
+\subsubsection{Coordinate Novelty Exploration Reward \texorpdfstring{($R_{\text{nav}}$)}{(R\_nav)}}
 Computes exact coordinate novelty over historical state trajectory:
 \begin{equation}
 R_{\text{nav}}(s_t) = 0.005 \times \mathbb{I}[c_t \notin \mathcal{H}_{\text{visited}}]
 \end{equation}
 where coordinate tuple $c_t = \langle \text{wCurMap}, \text{wXCoord}, \text{wYCoord} \rangle$, extracted directly from WRAM addresses \texttt{0xD35E}, \texttt{0xD362}, and \texttt{0xD361}.
 
-\subsubsection{Pok{\'e}mon Center Healing Reward ($R_{\text{heal}}$)}
+\subsubsection{Pok{\'e}mon Center Healing Reward \texorpdfstring{($R_{\text{heal}}$)}{(R\_heal)}}
 Incentivizes recovery of lost party health:
 \begin{equation}
 R_{\text{heal}}(s_t) = 2.5 \times \sum_{i=1}^6 \frac{(\text{HP}_{i,t} - \text{HP}_{i,t-1})^+}{\text{HP}_{i,\max}}
 \end{equation}
 
-\subsubsection{Level-Up Progress Reward ($R_{\text{lvl}}$)}
+\subsubsection{Level-Up Progress Reward \texorpdfstring{($R_{\text{lvl}}$)}{(R\_lvl)}}
 Rewards Pokémon level progression with a saturation threshold to prevent excessive early grinding:
 \begin{equation}
 R_{\text{lvl}}(s_t) = 0.5 \times \max\left(0, \Phi_{\text{lvl}}(L_t) - \Phi_{\text{lvl}}^{\max}\right)
@@ -230,10 +232,10 @@ where $L_t = \sum_{i=1}^6 \text{wPartyMonLevel}_i$ and the piecewise threshold f
 \begin{tikzpicture}[
     node distance=1.2cm and 1.8cm,
     font=\sffamily\footnotesize,
-    layer/.style={rectangle, draw=black!70, rounded corners=3pt, fill=blue!10, text centered, minimum width=2.2cm, minimum height=0.9cm, font=\sffamily\scriptsize},
-    fuse/.style={rectangle, draw=black!80, fill=purple!15, text centered, minimum width=3.0cm, minimum height=0.8cm, font=\sffamily\bfseries\scriptsize},
-    head/.style={rectangle, draw=black!80, fill=green!15, text centered, minimum width=2.4cm, minimum height=0.9cm, font=\sffamily\bfseries\scriptsize},
-    input/.style={rectangle, draw=black!60, fill=gray!15, text centered, minimum width=2.4cm, minimum height=0.8cm, font=\sffamily\scriptsize}
+    layer/.style={rectangle, draw=black!70, rounded corners=3pt, fill=blue!10, align=center, minimum width=2.2cm, minimum height=0.9cm, font=\sffamily\scriptsize},
+    fuse/.style={rectangle, draw=black!80, fill=purple!15, align=center, minimum width=3.0cm, minimum height=0.8cm, font=\sffamily\bfseries\scriptsize},
+    head/.style={rectangle, draw=black!80, fill=green!15, align=center, minimum width=2.4cm, minimum height=0.9cm, font=\sffamily\bfseries\scriptsize},
+    input/.style={rectangle, draw=black!60, fill=gray!15, align=center, minimum width=2.4cm, minimum height=0.8cm, font=\sffamily\scriptsize}
 ]
 
 % Input Nodes
@@ -303,6 +305,7 @@ The complete operational rollout, telemetry extraction, reward synthesis, and po
 \begin{algorithm}[t]
 \caption{Baseline V2 Joypad-Cadence Rollout and Composite Reward Execution Engine}
 \label{alg:baseline_v2}
+\footnotesize
 \begin{algorithmic}[1]
 \REQUIRE PyBoy Game Boy Emulator $\mathcal{E}$, Policy $\pi_\theta$, Value Network $V_\phi$, Initial State $s_0$ (\texttt{has\_pokedex\_nballs.state}), Base Budget $B_{\text{base}} = 10{,}240$, Budget Increment $\Delta B = 2{,}048$.
 \ENSURE Rollout Trajectory $\mathcal{D} = \{ (o_t, a_t, R_t, o_{t+1}, d_t) \}$, Model Updates $\Delta \theta, \Delta \phi$.
@@ -388,6 +391,7 @@ The head-to-head empirical results across both short-horizon ($100$ steps) and e
 \centering
 \caption{Synchronized 10,000-Step Dual Lockstep Telemetry on Game Boy Hardware (PyBoy).}
 \label{tab:dual_comparison}
+\resizebox{\columnwidth}{!}{%
 \begin{tabular}{lccc}
 \toprule
 \textbf{Metric} & \textbf{Model 1 (Their Baseline)} & \textbf{Model 2 (Our Retrained)} & \textbf{Delta ($\Delta$)} \\
@@ -403,7 +407,8 @@ Final Map Location & Route 1 & \textbf{Viridian Forest} & Active Exploration \\
 Final Coords $(X, Y)$ & $(14, 30)$ & $(27, 33)$ & Topologically Distinct \\
 Simulation Speed & 5.4 SPS & 5.4 SPS & Concurrent Lockstep \\
 \bottomrule
-\end{tabular}
+\end{tabular}%
+}
 \end{table}
 
 \subsection{Behavioral Post-Mortem of the Showdown}
@@ -509,13 +514,14 @@ Crucially, this vectorization maintains strict bit-level execution fidelity with
 \subsection{Pillar 2: Zero-Leak Hardware Action Masking}
 Rather than allowing the agent to sample invalid actions during text display or battle animations, the environment interrogates hardware WRAM flags:
 \begin{equation}
-\mathcal{M}(a | s) = \begin{cases}
-0, & \text{if } a \in \text{Directional} \wedge \text{WRAM}[\texttt{0xCF13}] \neq 0 \text{ (Dialogue Active)} \\
-0, & \text{if } a = \text{START} \wedge \text{WRAM}[\texttt{0xD057}] \neq 0 \text{ (Battle Active)} \\
-1, & \text{otherwise}
+\label{eq:action_mask}
+\mathcal{M}(a \mid s) = \begin{cases}
+0, & a \in \mathcal{A}_{\text{dir}} \wedge \mathbf{m}[\texttt{0xCF13}] \neq 0, \\
+0, & a = \text{\texttt{START}} \wedge \mathbf{m}[\texttt{0xD057}] \neq 0, \\
+1, & \text{otherwise,}
 \end{cases}
 \end{equation}
-Action masking guarantees zero wasted frames and eliminates menu-locking oscillations.
+where $\mathbf{m}$ denotes Game Boy WRAM, $\mathcal{A}_{\text{dir}} = \{\text{UP}, \text{DOWN}, \text{LEFT}, \text{RIGHT}\}$, register $\mathbf{m}[\texttt{0xCF13}] \ne 0$ indicates active dialogue (suppressing redundant walking into dialogue boxes), and $\mathbf{m}[\texttt{0xD057}] \ne 0$ indicates active combat (suppressing Start menu execution). Zero-leak action masking eliminates menu-locking oscillations.
 
 \subsection{Pillar 3: Automaton Reward Machines (Non-Markovian Rewards)}
 To resolve the Nurse Joy healing trap, scalar additive rewards must be replaced with an Automaton Reward Machine (ARM)~\cite{icarte2022reward}:
@@ -535,58 +541,6 @@ This study presented a rigorous reimplementation, empirical verification, and th
 ---
 
 \bibliographystyle{IEEEtran}
-\begin{thebibliography}{10}
-
-\bibitem{pleines2025playing}
-M.~Pleines, M.~Addis, D.~Rubinstein, F.~Zimmer, M.~Preuss, and P.~Whidden,
-\newblock ``Playing Pok{\'e}mon Red via Deep Reinforcement Learning,''
-\newblock in \emph{Proc. IEEE Conference on Games (CoG)}, 2025. arXiv:2502.19920.
-
-\bibitem{whidden2023pokemon}
-P.~Whidden,
-\newblock ``Pok{\'e}mon Red Experiments: Reinforcement Learning on Game Boy,''
-\newblock \emph{GitHub Repository: PWhiddy/PokemonRedExperiments}, 2023.
-
-\bibitem{mnih2015human}
-V.~Mnih, K.~Kavukcuoglu, D.~Silver, et~al.,
-\newblock ``Human-level control through deep reinforcement learning,''
-\newblock \emph{Nature}, vol. 518, no. 7540, pp. 529--533, 2015.
-
-\bibitem{schulman2017proximal}
-J.~Schulman, F.~Wolski, P.~Dhariwal, A.~Radford, and O.~Klimov,
-\newblock ``Proximal Policy Optimization Algorithms,''
-\newblock \emph{arXiv preprint arXiv:1707.06347}, 2017.
-
-\bibitem{schulman2015high}
-J.~Schulman, P.~Moritz, S.~Levine, M.~Jordan, and P.~Abbeel,
-\newblock ``High-Dimensional Continuous Control Using Generalized Advantage Estimation,''
-\newblock in \emph{Proc. ICLR}, 2016.
-
-\bibitem{ecoffet2021first}
-A.~Ecoffet, J.~Huizinga, J.~Lehman, K.~O. Stanley, and J.~Clune,
-\newblock ``First return, then explore,''
-\newblock \emph{Nature}, vol. 590, no. 7847, pp. 580--586, 2021.
-
-\bibitem{icarte2022reward}
-R.~Toro~Icarte, T.~Q. Klassen, R.~Valenzano, and S.~A. McIlraith,
-\newblock ``Reward Machines: Exploiting Reward Function Structure in Reinforcement Learning,''
-\newblock \emph{Journal of Artificial Intelligence Research}, vol. 73, pp. 173--208, 2022.
-
-\bibitem{suarez2023pufferlib}
-J.~Suarez,
-\newblock ``PufferLib: Multi-Environment Reinforcement Learning Library,''
-\newblock \emph{GitHub Repository: drubinstein/pokemonred\_puffer}, 2023.
-
-\bibitem{karten2026automatic}
-S.~Karten, R.~D. Appapogu, and C.~Jin,
-\newblock ``Automatic Generation of High-Performance Reinforcement Learning Environments,''
-\newblock \emph{arXiv preprint arXiv:2603.12145}, 2026.
-
-\bibitem{todorov2012mujoco}
-E.~Todorov, T.~Erez, and Y.~Tassa,
-\newblock ``MuJoCo: A physics engine for model-based control,''
-\newblock in \emph{Proc. IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)}, pp. 5026--5033, 2012.
-
-\end{thebibliography}
+\bibliography{references}
 
 \end{document}
