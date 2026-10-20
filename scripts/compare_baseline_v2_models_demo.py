@@ -369,16 +369,22 @@ def run_dual_interactive_rollout(
 
         last_pos_a, last_pos_b = pos_a, pos_b
 
-        # 5. Grab screen buffers
-        try:
-            screen_a = Image.fromarray(env_a.pyboy.screen.ndarray[:, :, :3].astype(np.uint8))
-        except Exception:
-            screen_a = Image.new("RGB", (160, 144), (30, 30, 30))
+        is_final_step = (step == num_steps - 1)
 
-        try:
-            screen_b = Image.fromarray(env_b.pyboy.screen.ndarray[:, :, :3].astype(np.uint8))
-        except Exception:
-            screen_b = Image.new("RGB", (160, 144), (30, 30, 30))
+        # 5. Grab screen buffers (optimized for speed in headless mode)
+        if not is_headless or is_final_step:
+            try:
+                screen_a = Image.fromarray(env_a.pyboy.screen.ndarray[:, :, :3].astype(np.uint8))
+            except Exception:
+                screen_a = Image.new("RGB", (160, 144), (30, 30, 30))
+
+            try:
+                screen_b = Image.fromarray(env_b.pyboy.screen.ndarray[:, :, :3].astype(np.uint8))
+            except Exception:
+                screen_b = Image.new("RGB", (160, 144), (30, 30, 30))
+        else:
+            screen_a = None
+            screen_b = None
 
         elapsed_now = time.time() - t0
         sps_a = len(coords_a) / elapsed_now if elapsed_now > 0 else 0.0
@@ -428,17 +434,30 @@ def run_dual_interactive_rollout(
                 print("[!] User pressed exit key in window. Finishing rollout...")
                 break
 
-        # 7. Real-time console log
-        if (step + 1) % 5 == 0 or step == 0 or step == num_steps - 1:
+        # 7. Real-time console log with adaptive interval
+        log_freq = 100 if num_steps >= 2000 else (20 if num_steps >= 500 else 5)
+        if (step + 1) % log_freq == 0 or step == 0 or is_final_step:
             print(
-                f"  Step {step + 1:3d}/{num_steps} | "
-                f"M1: Map={map_name_a:<11} ({pos_a[0]:2d},{pos_a[1]:2d}) [{name_a:<5}] Ret={rew_a:+.2f} Tiles={len(unique_a):2d} | "
-                f"M2: Map={map_name_b:<11} ({pos_b[0]:2d},{pos_b[1]:2d}) [{name_b:<5}] Ret={rew_b:+.2f} Tiles={len(unique_b):2d}",
+                f"  Step {step + 1:5d}/{num_steps} | "
+                f"M1: Map={map_name_a:<13} ({pos_a[0]:2d},{pos_a[1]:2d}) [{name_a:<5}] Ret={rew_a:+.2f} Tiles={len(unique_a):3d} | "
+                f"M2: Map={map_name_b:<13} ({pos_b[0]:2d},{pos_b[1]:2d}) [{name_b:<5}] Ret={rew_b:+.2f} Tiles={len(unique_b):3d}",
                 flush=True,
             )
 
         if (term_a or trunc_a) and (term_b or trunc_b):
             break
+
+    # Ensure screen buffers are captured for final canvas even if truncated early
+    if state_a["screen_img"] is None:
+        try:
+            state_a["screen_img"] = Image.fromarray(env_a.pyboy.screen.ndarray[:, :, :3].astype(np.uint8))
+        except Exception:
+            state_a["screen_img"] = Image.new("RGB", (160, 144), (30, 30, 30))
+    if state_b["screen_img"] is None:
+        try:
+            state_b["screen_img"] = Image.fromarray(env_b.pyboy.screen.ndarray[:, :, :3].astype(np.uint8))
+        except Exception:
+            state_b["screen_img"] = Image.new("RGB", (160, 144), (30, 30, 30))
 
     return state_a, state_b
 

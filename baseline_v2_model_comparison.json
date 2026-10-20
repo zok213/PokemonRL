@@ -1,38 +1,38 @@
 {
   "model_a": {
     "model_name": "Model 1: Baseline V2 Pretrained (26.2M Steps)",
-    "steps_simulated": 100,
-    "total_reward": 11.0,
-    "unique_tiles_count": 30,
-    "wall_bumps": 4,
-    "wall_bump_rate": 4.0,
-    "menu_opens": 0,
-    "action_entropy": 1.7104765865731792,
+    "steps_simulated": 10000,
+    "total_reward": 182.9601146977841,
+    "unique_tiles_count": 1629,
+    "wall_bumps": 1919,
+    "wall_bump_rate": 19.189999999999998,
+    "menu_opens": 394,
+    "action_entropy": 2.641663568163897,
     "final_position": {
-      "x": 3,
-      "y": 5,
-      "map_id": 39,
-      "map_name": "Blues House"
-    },
-    "last_action": "A",
-    "sps": 18.308134918642956
-  },
-  "model_b": {
-    "model_name": "Model 2: Our Retrained Baseline V2",
-    "steps_simulated": 100,
-    "total_reward": 17.1,
-    "unique_tiles_count": 52,
-    "wall_bumps": 17,
-    "wall_bump_rate": 17.0,
-    "menu_opens": 2,
-    "action_entropy": 2.4778227795300642,
-    "final_position": {
-      "x": 10,
-      "y": 33,
+      "x": 14,
+      "y": 30,
       "map_id": 12,
       "map_name": "Route 1"
     },
+    "last_action": "START",
+    "sps": 5.3710224277814085
+  },
+  "model_b": {
+    "model_name": "Model 2: Our Retrained Baseline V2",
+    "steps_simulated": 10000,
+    "total_reward": 152.3065424498709,
+    "unique_tiles_count": 1323,
+    "wall_bumps": 1692,
+    "wall_bump_rate": 16.919999999999998,
+    "menu_opens": 353,
+    "action_entropy": 2.631044894481258,
+    "final_position": {
+      "x": 27,
+      "y": 33,
+      "map_id": 51,
+      "map_name": "Viridian Forest"
+    },
     "last_action": "B",
-    "sps": 18.308134918642956
+    "sps": 5.3710224277814085
   }
 }
