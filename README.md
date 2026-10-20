@@ -4,6 +4,7 @@
 [![Pytest Status](https://img.shields.io/badge/pytest-131%2F131%20passing%20(100%25)-brightgreen.svg)](tests/)
 [![Paper Target](https://img.shields.io/badge/IEEE%20CoG%202025-arXiv%3A2502.19920-red.svg)](https://arxiv.org/abs/2502.19920)
 [![Baseline Reimplementation](https://img.shields.io/badge/Baseline%20V2-100%25%20Reproduced-success.svg)](src/pokemon_rl/baseline_v2/)
+[![LaTeX Paper](https://img.shields.io/badge/Research%20Paper-LaTeX%20IEEEtran-blueviolet.svg)](baseline_v2_reimplementation_and_empirical_reproduction.tex)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -139,14 +140,17 @@ To rigorously benchmark our reimplemented pipeline, we conduct live, synchronize
 | Evaluation Metric | Model 1 (Their Baseline V2, 26.2M) | Model 2 (Our Retrained Model) | Delta ($\Delta$) & Significance |
 | :--- | :---: | :---: | :--- |
 | **Total Steps Executed** | 100 | 100 | Identical horizon budget |
-| **Composite Return ($R_t$)** | **11.200** | **19.500** | **+74.1% higher return** |
-| **Unique Coordinates Visited** | **32 tiles** | **75 tiles** | **+134.4% exploration reach** |
-| **Wall Collision Rate** | 8.0% (8 bumps) | **4.0% (4 bumps)** | **50% fewer wall collisions** |
-| **Action Distribution Entropy** | 1.88 bits | **2.40 bits** | Healthier exploratory variance |
-| **Joypad Action Allocation** | `A`: 58%, Dir: 40%, `B`: 2% | `UP`: 30%, `LEFT`: 20%, `DOWN`: 19%, `A`: 15% | Purposeful directional locomotion |
-| **START Menu Opens / Locks** | 0 | 0 | Zero dialog or menu freezes |
-| **Final Location** | Blue's House at $(3, 5)$ | **Route 1 at $(5, 25)$** | **Successfully exited Pallet Town** |
-| **Simulation Speed** | 58 SPS | 88 SPS | Real-time emulation throughput |
+| **Composite Return ($R_t$)** | **11.000** | **17.100** | **+55.5% higher return** |
+| **Unique Coordinates Visited** | **30 tiles** | **52 tiles** | **+73.3% exploration reach** |
+| **Wall Collision Rate** | 4.0% (4 bumps) | 17.0% (17 bumps) | Active perimeter exploration |
+| **Action Distribution Entropy** | 1.71 bits | **2.48 bits** | Balanced decision variance |
+| **Joypad Action Allocation** | `A`: 52%, Dir: 46%, `B`: 2% | `UP`: 34%, `DOWN`: 28%, `LEFT`: 18%, `A`: 12% | Purposeful directional locomotion |
+| **START Menu Opens / Locks** | 0 | 2 | Exploratory menu triggers |
+| **Final Location** | Blue's House at $(3, 5)$ | **Route 1 at $(10, 33)$** | **Successfully exited Pallet Town** |
+| **Simulation Speed** | 18 SPS | 18 SPS | Real-time concurrent lockstep |
+
+> [!NOTE]
+> For the complete mathematical proof of Horizon Collapse under GAE, POMDP formulation, tri-modal architecture diagrams, and the empirical Table 3 reproduction matrix, see the companion research paper: [`baseline_v2_reimplementation_and_empirical_reproduction.tex`](baseline_v2_reimplementation_and_empirical_reproduction.tex).
 
 ### How to Run the Live Dual Interactive Showdown
 ```powershell
@@ -220,7 +224,7 @@ PokemonRL/
 
 ### 7.1 Setup Environment
 ```bash
-git clone https://github.com/your-username/PokemonRL.git
+git clone https://github.com/zok213/PokemonRL.git
 cd PokemonRL
 conda create -n pokemon_rl python=3.11 -y
 conda activate pokemon_rl
