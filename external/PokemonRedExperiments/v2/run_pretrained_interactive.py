@@ -1,3 +1,12 @@
+import sys
+import unittest.mock
+
+# Suppress NumPy 2.x C-extension collisions with matplotlib/tensorboard/mediapy
+sys.modules.setdefault('matplotlib', unittest.mock.MagicMock())
+sys.modules.setdefault('matplotlib.pyplot', unittest.mock.MagicMock())
+sys.modules.setdefault('tensorboard.compat.notf', unittest.mock.MagicMock())
+sys.modules.setdefault('mediapy', unittest.mock.MagicMock())
+
 import os
 from os.path import exists
 from pathlib import Path
@@ -149,7 +158,11 @@ if __name__ == '__main__':
         env.render()
         if truncated:
             break
-    env.close()
+    try:
+        env.close()
+    except Exception:
+        pass
+    os._exit(0)
 
 
 

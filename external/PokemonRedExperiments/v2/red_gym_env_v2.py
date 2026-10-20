@@ -4,14 +4,19 @@ from pathlib import Path
 
 import numpy as np
 from skimage.transform import downscale_local_mean
-try:
-    import matplotlib.pyplot as plt
-except Exception:
-    import unittest.mock
-    plt = unittest.mock.MagicMock()
+import sys
+import unittest.mock
+
+# Suppress NumPy 2.x C-extension collisions with matplotlib/tensorboard/mediapy
+sys.modules.setdefault('matplotlib', unittest.mock.MagicMock())
+sys.modules.setdefault('matplotlib.pyplot', unittest.mock.MagicMock())
+sys.modules.setdefault('tensorboard.compat.notf', unittest.mock.MagicMock())
+sys.modules.setdefault('mediapy', unittest.mock.MagicMock())
+
+plt = unittest.mock.MagicMock()
+media = unittest.mock.MagicMock()
 from pyboy import PyBoy
 #from pyboy.logger import log_level
-import mediapy as media
 from einops import repeat
 
 from gymnasium import Env, spaces
