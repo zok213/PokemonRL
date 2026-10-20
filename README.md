@@ -201,7 +201,7 @@ To rigorously benchmark our reimplemented pipeline, we conduct live, synchronize
 
 ### Quantitative Telemetry Matrix (10,000 Steps on Game Boy Hardware)
 
-| Evaluation Metric | Model 1 (Their Baseline V2, 26.2M) | Model 2 (Our Retrained Model) | Delta (Δ) & Comparative Analysis |
+| Evaluation Metric | Model 1 (Their Baseline V2, 26.2M) | Model 2 (Our Retrained Model) | Delta ($\Delta$) & Comparative Analysis |
 | :--- | :---: | :---: | :--- |
 | **Total Steps Executed** | 10,000 | 10,000 | Identical long-horizon budget |
 | **Composite Return (R_t)** | 182.960 | 152.307 | Both achieve high milestone accumulation |
@@ -217,7 +217,7 @@ To rigorously benchmark our reimplemented pipeline, we conduct live, synchronize
 <details>
 <summary>Click to view Short-Horizon (100 Steps) Early Escape Telemetry</summary>
 
-| Evaluation Metric | Model 1 (Their Baseline V2, 26.2M) | Model 2 (Our Retrained Model) | Delta (Δ) & Significance |
+| Evaluation Metric | Model 1 (Their Baseline V2, 26.2M) | Model 2 (Our Retrained Model) | Delta ($\Delta$) & Significance |
 | :--- | :---: | :---: | :--- |
 | **Total Steps Executed** | 100 | 100 | Identical early horizon |
 | **Composite Return (R_t)** | 11.000 | **17.100** | **+55.5% higher return** |
