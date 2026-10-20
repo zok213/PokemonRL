@@ -175,6 +175,41 @@ class WorldGraphNavigator:
             if len(grids[96]) > 12 and len(grids[96][12]) > 2:
                 grids[96][12][2] = '#'  # 3F stairs to avoid while navigating 2F corridor
 
+        # Route 9 static trainer calibrations from external/pokered/data/maps/objects/Route9.asm
+        if 20 in grids:
+            r9_npcs = [(13, 10), (24, 7), (31, 7), (48, 8), (16, 15), (43, 3), (22, 2), (45, 15), (40, 8)]
+            for nx, ny in r9_npcs:
+                if ny < len(grids[20]) and nx < len(grids[20][ny]):
+                    grids[20][ny][nx] = '#'
+
+        # Rock Tunnel 1F static NPC calibrations from external/pokered/data/maps/objects/RockTunnel1F.asm
+        if 82 in grids:
+            t1f_npcs = [
+                (7, 5), (5, 16), (17, 15), (23, 8), (37, 21), (22, 24), (32, 24), (22, 27),
+                # Trainer sight lines to avoid unnecessary battles:
+                (7, 6), (7, 7), (7, 8), (7, 9),        # Hiker 1 (7, 5) STAY DOWN dist 4
+                (5, 17), (5, 18), (5, 19), (5, 20),    # Hiker 2 (5, 16) STAY DOWN dist 4
+                (16, 15), (15, 15), (14, 15),          # Hiker 3 (17, 15) STAY LEFT dist 3
+                (33, 24), (34, 24), (35, 24), (36, 24) # Cooltrainer F 3 (32, 24) STAY RIGHT dist 4
+            ]
+            for nx, ny in t1f_npcs:
+                if ny < len(grids[82]) and nx < len(grids[82][ny]):
+                    grids[82][ny][nx] = '#'
+
+        # Rock Tunnel B1F static NPC calibrations from external/pokered/data/maps/objects/RockTunnelB1F.asm
+        if 232 in grids:
+            tb1f_npcs = [
+                (11, 13), (6, 10), (3, 5), (20, 21), (30, 10), (14, 28), (33, 5), (26, 30),
+                # Trainer sight lines to avoid unnecessary battles:
+                (21, 21), (22, 21), (23, 21), (24, 21), # Super Nerd 2 (20, 21) STAY RIGHT dist 4
+                (30, 11), (30, 12), (30, 13),           # Hiker 2 (30, 10) STAY DOWN dist 3
+                (34, 5), (35, 5), (36, 5),              # Hiker 3 (33, 5) STAY RIGHT dist 3
+                (3, 6), (3, 7), (3, 8),                 # Super Nerd 1 (3, 5) STAY DOWN dist 3
+            ]
+            for nx, ny in tb1f_npcs:
+                if ny < len(grids[232]) and nx < len(grids[232][ny]):
+                    grids[232][ny][nx] = '#'
+
         WorldGraphNavigator._CACHED_MAP_GRIDS = grids
         self._map_grids = grids
 
@@ -615,6 +650,25 @@ class WorldGraphNavigator:
             if self.milestone == "cascade_badge":
                 return MapSubgoal((x, y), "cascade_badge_achieved", "Cascade Badge Acquired!")
 
+            # Thunder Badge acquired: Post-Surge Progression (Bicycle & Route 9)
+            if (badges & RAMMap.BADGE_THUNDER) != 0:
+                if RAMMap.ITEM_BICYCLE not in bag_items:
+                    if (x, y) == (13, 25):
+                        return MapSubgoal((13, 24), "enter_bike_shop", "Enter Bike Shop to redeem Bike Voucher", is_warp=True)
+                    wp = self._bfs_next_waypoint(3, (x, y), (13, 25), lookahead=1, can_cut=can_cut)
+                    return MapSubgoal(wp, "approach_bike_shop", f"Advance towards Bike Shop via {wp}")
+                else:
+                    if y < 28 and x < 35:
+                        if (x, y) == (19, 27):
+                            return MapSubgoal((19, 28), "cut_cerulean_tree", "Cut down tree blocking southern corridor", is_interaction=True)
+                        wp = self._bfs_next_waypoint(3, (x, y), (19, 27), lookahead=1, can_cut=can_cut)
+                        return MapSubgoal(wp, "approach_cerulean_cut_tree", f"Advance towards Cerulean cut tree via {wp}")
+                    else:
+                        if (x, y) in ((39, 16), (39, 17)):
+                            return MapSubgoal((40, y), "enter_route9", "Step east onto Route 9 towards Rock Tunnel", is_warp=True)
+                        wp = self._bfs_next_waypoint(3, (x, y), (39, 17), lookahead=1, can_cut=can_cut)
+                        return MapSubgoal(wp, "advance_to_route9", f"Advance through eastern corridor towards Route 9 via {wp}")
+
             # Cascade Badge acquired:
             # Check if Red has the S.S. Ticket from Bill to unlock the burgled house and S.S. Anne
             if not has_ss_ticket:
@@ -674,6 +728,18 @@ class WorldGraphNavigator:
                 return MapSubgoal((3, -1), "exit_trashed_house_hole", "Step north through wall hole into backyard", is_warp=True)
             wp = self._bfs_next_waypoint(62, (x, y), (3, 0), lookahead=1)
             return MapSubgoal(wp, "advance_trashed_house_hole", f"Advance towards wall hole via {wp}")
+
+        elif map_id == 66:  # Cerulean Bike Shop
+            if RAMMap.ITEM_BICYCLE not in bag_items:
+                if (x, y) == (6, 4):
+                    return MapSubgoal((6, 2), "redeem_bicycle", "Speak to Bike Shop Clerk across counter to redeem Bike Voucher", is_interaction=True)
+                wp = self._bfs_next_waypoint(66, (x, y), (6, 4), lookahead=1)
+                return MapSubgoal(wp, "approach_clerk", f"Approach Bike Shop Clerk counter via {wp}")
+            else:
+                if (x, y) in ((2, 7), (3, 7)):
+                    return MapSubgoal((x, 8), "exit_bike_shop", "Step south outside into Cerulean City", is_warp=True)
+                wp = self._bfs_next_waypoint(66, (x, y), (2, 7), lookahead=1)
+                return MapSubgoal(wp, "approach_bike_shop_exit", f"Walk towards Bike Shop exit via {wp}")
 
         elif map_id == 35:  # Route 24 (Nugget Bridge)
             if not has_ss_ticket:
@@ -890,7 +956,16 @@ class WorldGraphNavigator:
         # 9. ROUTE 9, ROUTE 10, ROCK TUNNEL, LAVENDER TOWN (Maps 20, 21, 82, 232, 4)
         # ---------------------------------------------------------------------
         elif map_id == 20:  # Route 9
-            return MapSubgoal((60, 8), "advance_route9_east", "Advance east along Route 9 towards Rock Tunnel")
+            if x < 5:
+                if (x, y) == (4, 8):
+                    return MapSubgoal((5, 8), "cut_route9_tree", "Cut down tree blocking Route 9", is_interaction=True)
+                wp = self._bfs_next_waypoint(20, (x, y), (4, 8), lookahead=1, can_cut=can_cut)
+                return MapSubgoal(wp, "approach_route9_tree", f"Advance towards Route 9 cut tree via {wp}")
+            else:
+                if (x, y) in ((59, 7), (59, 8), (59, 9)):
+                    return MapSubgoal((60, y), "enter_route10", "Step east onto Route 10 towards Rock Tunnel", is_warp=True)
+                wp = self._bfs_next_waypoint(20, (x, y), (59, 8), lookahead=1, can_cut=can_cut)
+                return MapSubgoal(wp, "advance_route9_east", f"Advance east along Route 9 towards Rock Tunnel via {wp}")
 
         elif map_id == 21:  # Route 10
             if y < 20:

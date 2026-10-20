@@ -1,0 +1,158 @@
+{
+  "baseline_squirtle": {
+    "variant": "baseline_squirtle",
+    "steps_simulated": 300,
+    "elapsed_seconds": 0.7950479984283447,
+    "sps": 377.33570877864184,
+    "total_reward": 0.2650000000000001,
+    "reward_components": {
+      "r_event": 0.0,
+      "r_nav": 0.2650000000000001,
+      "r_heal": 0.0,
+      "r_lvl": 0.0
+    },
+    "paper_benchmark": {
+      "milestones": "4.19 +/- 0.2",
+      "beat_brock": "0.99 +/- 0.0",
+      "mt_moon": "0.97 +/- 0.0",
+      "cerulean_city": "0.85 +/- 0.1",
+      "beat_misty": "0.27 +/- 0.3",
+      "bills_quest": "0.11 +/- 0.2",
+      "cerulean_done": "0.00 +/- 0.0",
+      "brock_steps": "5587 +/- 1235",
+      "cerulean_steps": "25299 +/- 4950",
+      "heals_farmed": "12.81 +/- 5.9",
+      "species_entropy": "2.61 +/- 0.1"
+    }
+  },
+  "baseline_no_lvl": {
+    "variant": "baseline_no_lvl",
+    "steps_simulated": 300,
+    "elapsed_seconds": 0.851886510848999,
+    "sps": 352.15958485011913,
+    "total_reward": 0.24500000000000013,
+    "reward_components": {
+      "r_event": 0.0,
+      "r_nav": 0.24500000000000013,
+      "r_heal": 0.0,
+      "r_lvl": 0.0
+    },
+    "paper_benchmark": {
+      "milestones": "4.60 +/- 0.7",
+      "beat_brock": "0.95 +/- 0.0",
+      "mt_moon": "0.91 +/- 0.1",
+      "cerulean_city": "0.79 +/- 0.1",
+      "beat_misty": "0.31 +/- 0.3",
+      "bills_quest": "0.32 +/- 0.4",
+      "cerulean_done": "0.03 +/- 0.1",
+      "brock_steps": "6117 +/- 1758",
+      "cerulean_steps": "21352 +/- 3898",
+      "heals_farmed": "11.73 +/- 4.0",
+      "species_entropy": "1.24 +/- 0.2"
+    }
+  },
+  "baseline_no_heal": {
+    "variant": "baseline_no_heal",
+    "steps_simulated": 300,
+    "elapsed_seconds": 0.9319086074829102,
+    "sps": 321.9199796966159,
+    "total_reward": 0.28000000000000014,
+    "reward_components": {
+      "r_event": 0.0,
+      "r_nav": 0.28000000000000014,
+      "r_heal": 0.0,
+      "r_lvl": 0.0
+    },
+    "paper_benchmark": {
+      "milestones": "3.94 +/- 0.2",
+      "beat_brock": "0.99 +/- 0.0",
+      "mt_moon": "0.97 +/- 0.0",
+      "cerulean_city": "0.91 +/- 0.1",
+      "beat_misty": "0.07 +/- 0.1",
+      "bills_quest": "0.00 +/- 0.0",
+      "cerulean_done": "0.00 +/- 0.0",
+      "brock_steps": "5497 +/- 503",
+      "cerulean_steps": "28813 +/- 2880",
+      "heals_farmed": "1.45 +/- 0.7",
+      "species_entropy": "2.27 +/- 0.2"
+    }
+  },
+  "gru_memory_body": {
+    "variant": "gru_memory_body",
+    "steps_simulated": 300,
+    "elapsed_seconds": 0.9211597442626953,
+    "sps": 325.67641157628174,
+    "total_reward": 0.3200000000000002,
+    "reward_components": {
+      "r_event": 0.0,
+      "r_nav": 0.3200000000000002,
+      "r_heal": 0.0,
+      "r_lvl": 0.0
+    },
+    "paper_benchmark": {
+      "milestones": "3.93 +/- 2.2",
+      "beat_brock": "0.76 +/- 0.4",
+      "mt_moon": "0.71 +/- 0.4",
+      "cerulean_city": "0.49 +/- 0.4",
+      "beat_misty": "0.21 +/- 0.3",
+      "bills_quest": "0.48 +/- 0.4",
+      "cerulean_done": "0.21 +/- 0.3",
+      "brock_steps": "5624 +/- 780",
+      "cerulean_steps": "27118 +/- 4236",
+      "heals_farmed": "23.09 +/- 23.3",
+      "species_entropy": "1.87 +/- 1.0"
+    }
+  },
+  "choose_starter_pallet": {
+    "variant": "choose_starter_pallet",
+    "steps_simulated": 300,
+    "elapsed_seconds": 0.9689884185791016,
+    "sps": 309.6012235521988,
+    "total_reward": 0.27500000000000013,
+    "reward_components": {
+      "r_event": 0.0,
+      "r_nav": 0.27500000000000013,
+      "r_heal": 0.0,
+      "r_lvl": 0.0
+    },
+    "paper_benchmark": {
+      "milestones": "3.43 +/- 1.7",
+      "beat_brock": "0.79 +/- 0.4",
+      "mt_moon": "0.79 +/- 0.4",
+      "cerulean_city": "0.75 +/- 0.4",
+      "beat_misty": "0.29 +/- 0.4",
+      "bills_quest": "0.00 +/- 0.0",
+      "cerulean_done": "0.00 +/- 0.0",
+      "brock_steps": "6485 +/- 578",
+      "cerulean_steps": "30593 +/- 1143",
+      "heals_farmed": "33.75 +/- 34.1",
+      "species_entropy": "1.25 +/- 0.6"
+    }
+  },
+  "bulbasaur_starter": {
+    "variant": "bulbasaur_starter",
+    "steps_simulated": 300,
+    "elapsed_seconds": 1.0025882720947266,
+    "sps": 299.22552292897296,
+    "total_reward": 0.2100000000000001,
+    "reward_components": {
+      "r_event": 0.0,
+      "r_nav": 0.2100000000000001,
+      "r_heal": 0.0,
+      "r_lvl": 0.0
+    },
+    "paper_benchmark": {
+      "milestones": "3.00 +/- 0.0",
+      "beat_brock": "0.94 +/- 0.0",
+      "mt_moon": "0.94 +/- 0.0",
+      "cerulean_city": "0.00 +/- 0.0",
+      "beat_misty": "0.00 +/- 0.0",
+      "bills_quest": "0.00 +/- 0.0",
+      "cerulean_done": "0.00 +/- 0.0",
+      "brock_steps": "6231 +/- 1282",
+      "cerulean_steps": "N/A (Trapped at Mt. Moon)",
+      "heals_farmed": "399.33 +/- 177.1",
+      "species_entropy": "2.34 +/- 0.2"
+    }
+  }
+}

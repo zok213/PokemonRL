@@ -459,6 +459,68 @@ def test_world_graph_digletts_cave_and_route2():
     assert sg6_pewter.is_warp is True
 
 
+def test_world_graph_cerulean_bike_shop_and_route9():
+    """Verify topological navigation across Cerulean Bike Shop and Route 9."""
+    nav = WorldGraphNavigator()
+
+    # 1. In Cerulean City with Thunder Badge but no Bike: route to Bike Shop (13, 25)
+    sg1 = nav.get_subgoal(3, 0, 18, badges=7, bag=[45], party_moves=[15])
+    assert sg1.goal_name == "approach_bike_shop"
+
+    sg1_door = nav.get_subgoal(3, 13, 25, badges=7, bag=[45], party_moves=[15])
+    assert sg1_door.goal_name == "enter_bike_shop"
+    assert sg1_door.is_warp is True
+
+    # 2. Inside Bike Shop (Map 66) without Bike: route to Clerk at (6, 4)
+    sg2 = nav.get_subgoal(66, 2, 7, badges=7, bag=[45], party_moves=[15])
+    assert sg2.goal_name == "approach_clerk"
+
+    sg2_clerk = nav.get_subgoal(66, 6, 4, badges=7, bag=[45], party_moves=[15])
+    assert sg2_clerk.goal_name == "redeem_bicycle"
+    assert sg2_clerk.is_interaction is True
+
+    # 3. Inside Bike Shop with Bike: route to exit door at (2, 7)
+    sg3 = nav.get_subgoal(66, 6, 4, badges=7, bag=[6], party_moves=[15])
+    assert sg3.goal_name == "approach_bike_shop_exit"
+
+    sg3_door = nav.get_subgoal(66, 2, 7, badges=7, bag=[6], party_moves=[15])
+    assert sg3_door.goal_name == "exit_bike_shop"
+    assert sg3_door.is_warp is True
+
+    # 4. In Cerulean City with Bike: route to South Cut tree at (19, 27)
+    sg4 = nav.get_subgoal(3, 13, 25, badges=7, bag=[6], party_moves=[15])
+    assert sg4.goal_name == "approach_cerulean_cut_tree"
+
+    sg4_cut = nav.get_subgoal(3, 19, 27, badges=7, bag=[6], party_moves=[15])
+    assert sg4_cut.goal_name == "cut_cerulean_tree"
+    assert sg4_cut.target_coord == (19, 28)
+    assert sg4_cut.is_interaction is True
+
+    # 5. Past cut tree on Cerulean south/east corridor: advance to Route 9
+    sg5 = nav.get_subgoal(3, 19, 29, badges=7, bag=[6], party_moves=[15])
+    assert sg5.goal_name == "advance_to_route9"
+
+    sg5_border = nav.get_subgoal(3, 39, 17, badges=7, bag=[6], party_moves=[15])
+    assert sg5_border.goal_name == "enter_route9"
+    assert sg5_border.is_warp is True
+
+    # 6. On Route 9: cut tree at (5, 8) and advance east to Route 10
+    sg6 = nav.get_subgoal(20, 0, 9, badges=7, bag=[6], party_moves=[15])
+    assert sg6.goal_name == "approach_route9_tree"
+
+    sg6_cut = nav.get_subgoal(20, 4, 8, badges=7, bag=[6], party_moves=[15])
+    assert sg6_cut.goal_name == "cut_route9_tree"
+    assert sg6_cut.target_coord == (5, 8)
+    assert sg6_cut.is_interaction is True
+
+    sg7 = nav.get_subgoal(20, 6, 8, badges=7, bag=[6], party_moves=[15])
+    assert sg7.goal_name == "advance_route9_east"
+
+    sg7_r10 = nav.get_subgoal(20, 59, 8, badges=7, bag=[6], party_moves=[15])
+    assert sg7_r10.goal_name == "enter_route10"
+    assert sg7_r10.is_warp is True
+
+
 # =============================================================================
 # 3. LOCAL AFFORDANCE POLICY PERSISTENCE & INFERENCE REPRODUCIBILITY
 # =============================================================================
