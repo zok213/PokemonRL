@@ -15,6 +15,8 @@
 \usetikzlibrary{shapes.geometric, arrows, positioning, fit, backgrounds, calc}
 \usepackage{hyperref}
 \usepackage{url}
+\usepackage{microtype}
+\emergencystretch=1.5em
 
 \hypersetup{
     colorlinks=true,
@@ -30,8 +32,7 @@
 
 \author{\IEEEauthorblockN{Autonomous Systems \& Reinforcement Learning Group}
 \IEEEauthorblockA{\textit{Computational Intelligence \& Game AI Research Lab} \\
-Codebase: \url{https://github.com/zok213/PokemonRL} \\
-Target Venue: IEEE Transactions on Games / IEEE Conference on Games (CoG)}
+Codebase: \url{https://github.com/zok213/PokemonRL}}
 }
 
 \maketitle
@@ -63,32 +64,42 @@ The foundational paper by Pleines et al.~\cite{pleines2025playing} (IEEE CoG 202
 To systematically evaluate the capabilities and limits of model-free reinforcement learning in commercial RPGs, Pleines et al. formulated five concrete research inquiries. Below, we synthesize the paper's original answers alongside our empirical verification:
 
 \begin{enumerate}
-    \item \textbf{RQ1: Can model-free DRL learn overworld spatial traversal directly from raw discrete Joypad actuations?} \\
-    \textit{Paper Answer:} Yes, but strictly when augmented with dense extrinsic coordinate novelty hashing ($R_{\text{nav}}$). Without coordinate hashing, pixel-level novelty mechanisms (such as k-NN or Random Network Distillation) degenerate due to background tile animations (e.g., oscillating water waves in Pallet Town). \\
+    \item \textbf{RQ1: Can model-free DRL learn overworld spatial traversal directly from raw discrete Joypad actuations?}
+
+    \textit{Paper Answer:} Yes, but strictly when augmented with dense extrinsic coordinate novelty hashing ($R_{\text{nav}}$). Without coordinate hashing, pixel-level novelty mechanisms (such as k-NN or Random Network Distillation) degenerate due to background tile animations (e.g., oscillating water waves in Pallet Town).
+
     \textit{Our Reproduction:} Fully confirmed. By hashing the 3-tuple $\langle \text{MapID}, x, y \rangle$ directly from Work RAM (\texttt{0xD35E}, \texttt{0xD362}, \texttt{0xD361}), our reimplementation achieves rapid escape from interior spaces, with Our Retrained Model discovering 52 unique tiles and penetrating Route~1 within 100 steps.
 
-    \item \textbf{RQ2: What is the impact of hardware-level Joypad actuation cadence on policy stability?} \\
-    \textit{Paper Answer:} Standard single-frame actuation models (ubiquitous in Atari 2600 environments) fail catastrophically in Game Boy emulation, dropping over $90\%$ of button presses because the Game Boy CPU polls register \texttt{rP1} (\texttt{0xFF00}) only during vertical blank and specific assembly interrupt routines. Baseline V2 introduces a 24-frame cadence ($8\text{ hold} + 16\text{ release}$ frames, $\approx 0.40\text{ s}$) that guarantees input capture. \\
-    \textit{Our Reproduction:} Verified across all unit and rollout tests. In our modular gym environment (\texttt{src/pokemon\_rl/baseline\_v2/env.py}), the 8/16 timing completely eliminates dropped inputs and maintains identical execution timing to commercial hardware.
+    \item \textbf{RQ2: What is the impact of hardware-level Joypad actuation cadence on policy stability?}
 
-    \item \textbf{RQ3: How do composite reward signals (Events, Novelty, Heals, Levels) interact, and do they trigger reward exploitation?} \\
-    \textit{Paper Answer:} Linear additive rewards induce severe failure modes. Removing the level reward ($-R_{\text{lvl}}$) actually increases quest milestone attainment ($4.60 \pm 0.7$ vs. $4.19 \pm 0.2$), proving that level-grinding rewards act as a distractor. Furthermore, rewarding health recovery ($R_{\text{heal}} = +2.5$) creates a high-yield limit-cycle attractor outside Pok{\'e}mon Centers. Most critically, starting with Bulbasaur results in a fatal failure mode in Mt.~Moon: wild Zubats knowing \textit{Leech Life} deal super-effective damage, driving Bulbasaur into a loop of retreating to the Pok{\'e}mon Center and farming $399.33 \pm 177.1$ heals while achieving a $0.0\%$ Cerulean City arrival rate. \\
+    \textit{Paper Answer:} Standard single-frame actuation models (ubiquitous in Atari 2600 environments) fail catastrophically in Game Boy emulation, dropping over $90\%$ of button presses because the Game Boy CPU polls register \texttt{rP1} (\texttt{0xFF00}) only during vertical blank and specific assembly interrupt routines. Baseline V2 introduces a 24-frame cadence ($8\text{ hold} + 16\text{ release}$ frames, $\approx 0.40\text{ s}$) that guarantees input capture.
+
+    \textit{Our Reproduction:} Verified across all unit and rollout tests. In our modular gym environment (\texttt{src/}\allowbreak\texttt{pokemon\_rl/}\allowbreak\texttt{baseline\_v2/}\allowbreak\texttt{env.py}), the 8/16 timing completely eliminates dropped inputs and maintains identical execution timing to commercial hardware.
+
+    \item \textbf{RQ3: How do composite reward signals (Events, Novelty, Heals, Levels) interact, and do they trigger reward exploitation?}
+
+    \textit{Paper Answer:} Linear additive rewards induce severe failure modes. Removing the level reward ($-R_{\text{lvl}}$) actually increases quest milestone attainment ($4.60 \pm 0.7$ vs. $4.19 \pm 0.2$), proving that level-grinding rewards act as a distractor. Furthermore, rewarding health recovery ($R_{\text{heal}} = +2.5$) creates a high-yield limit-cycle attractor outside Pok{\'e}mon Centers. Most critically, starting with Bulbasaur results in a fatal failure mode in Mt.~Moon: wild Zubats knowing \textit{Leech Life} deal super-effective damage, driving Bulbasaur into a loop of retreating to the Pok{\'e}mon Center and farming $399.33 \pm 177.1$ heals while achieving a $0.0\%$ Cerulean City arrival rate.
+
     \textit{Our Reproduction:} Verified in Table~\ref{tab:table3}. Our Table~3 ablation reproduction engine perfectly replicates these dynamics and confirms the Bulbasaur Mt.~Moon pathology.
 
-    \item \textbf{RQ4: Does temporal memory augmentation (e.g., GRU) alleviate long-horizon credit assignment?} \\
-    \textit{Paper Answer:} No. Incorporating a Gated Recurrent Unit (GRU) core into the Actor-Critic body increases milestone variance ($3.93 \pm 2.2$) and degrades Brock completion from $99\%$ down to $76\%$. \\
+    \item \textbf{RQ4: Does temporal memory augmentation (e.g., GRU) alleviate long-horizon credit assignment?}
+
+    \textit{Paper Answer:} No. Incorporating a Gated Recurrent Unit (GRU) core into the Actor-Critic body increases milestone variance ($3.93 \pm 2.2$) and degrades Brock completion from $99\%$ down to $76\%$.
+
     \textit{Our Reproduction:} Confirmed. Our modular architecture supports both MLP and GRU bodies. We prove mathematically in Section~VI (Theorem~1) why flat recurrent memory cannot bridge trajectories exceeding $25{,}000$ steps under GAE.
 
-    \item \textbf{RQ5: Can pure model-free RL conquer mid-game hierarchical bottlenecks (Cerulean City, HM01 Cut, Vermilion Gym)?} \\
-    \textit{Paper Answer:} No. In $100\%$ of experimental runs across all configurations, model-free PPO failed to cross the Cerulean shrub barrier ($0.0\%$ attainment) because navigating the multi-nested Start Menu to teach HM01 Cut requires an exact 15-step combinatorial sequence that uniform exploration has probability $P \approx 2.1 \times 10^{-13}$ of discovering. \\
+    \item \textbf{RQ5: Can pure model-free RL conquer mid-game hierarchical bottlenecks (Cerulean City, HM01 Cut, Vermilion Gym)?}
+
+    \textit{Paper Answer:} No. In $100\%$ of experimental runs across all configurations, model-free PPO failed to cross the Cerulean shrub barrier ($0.0\%$ attainment) because navigating the multi-nested Start Menu to teach HM01 Cut requires an exact 15-step combinatorial sequence that uniform exploration has probability $P \approx 2.1 \times 10^{-13}$ of discovering.
+
     \textit{Our Reproduction:} Confirmed. This limitation establishes the absolute mathematical boundary of Baseline V2 and motivates our four-pillar roadmap.
 \end{enumerate}
 
 \subsection{Contributions of This Work}
 In this investigation, we provide a complete, verified reimplementation and research audit of Baseline V2:
 \begin{enumerate}
-    \item \textbf{Fully Modular Reimplementation:} We construct a standalone, modular Python/PyTorch package (\texttt{src/pokemon\_rl/baseline\_v2/}) implementing the exact 24-frame Joypad cadence, multi-modal observation pipeline, dynamic budget truncation, and Table~3 ablation suite.
-    \item \textbf{Live Dual Lockstep Showdown Engine:} We engineer an authentic concurrent emulator framework (\texttt{compare\_baseline\_v2\_models\_demo.py}) running ``Their Baseline V2'' and ``Our Retrained Model'' side-by-side in lockstep on real Game Boy emulation (PyBoy), providing live telemetry and high-DPI visual capture.
+    \item \textbf{Fully Modular Reimplementation:} We construct a standalone, modular Python/PyTorch package (\texttt{src/}\allowbreak\texttt{pokemon\_rl/}\allowbreak\texttt{baseline\_v2/}) implementing the exact 24-frame Joypad cadence, multi-modal observation pipeline, dynamic budget truncation, and Table~3 ablation suite.
+    \item \textbf{Live Dual Lockstep Showdown Engine:} We engineer an authentic concurrent emulator framework (\texttt{compare\_baseline\_v2\_}\allowbreak\texttt{models\_demo.py}) running ``Their Baseline V2'' and ``Our Retrained Model'' side-by-side in lockstep on real Game Boy emulation (PyBoy), providing live telemetry and high-DPI visual capture.
     \item \textbf{Formal Theoretical Post-Mortem:} We formulate Theorem~1 (The Horizon Collapse Theorem), mathematically proving that Generalized Advantage Estimation attenuates learning signals across 25,000 steps by factor $\approx 10^{-590}$.
     \item \textbf{Systems Roadmap:} We detail a four-pillar engineering architecture (vectorized C/Rust emulators, zero-leak action masking, Automaton Reward Machines, and Go-Explore archive checkpointing) designed to achieve long-horizon game completion.
 \end{enumerate}
@@ -106,8 +117,10 @@ where:
 \begin{itemize}
     \item $\mathcal{S}$ is the underlying state space, spanning the 8~KB Work RAM (WRAM, \texttt{0xC000}--\texttt{0xDFFF}), 8~KB Video RAM (VRAM), CPU registers, and MBC1 ROM/RAM banking registers. The state cardinality is $|\mathcal{S}| \approx 2^{131{,}072}$.
     \item $\mathcal{A}$ is the discrete Joypad action space:
-    $$\mathcal{A} = \{ \text{DOWN}, \text{LEFT}, \text{RIGHT}, \text{UP}, \text{A}, \text{B}, \text{START} \}, \quad |\mathcal{A}| = 7$$
-    The hardware button \texttt{SELECT} is intentionally excluded; in Pok{\'e}mon Red, \texttt{SELECT} triggers inventory item swapping and battle move reordering, which induces severe policy instability and item soft-locks under stochastic exploration.
+    \begin{equation}
+    \mathcal{A} = \{ \text{DOWN}, \text{LEFT}, \text{RIGHT}, \text{UP}, \text{A}, \text{B}, \text{START} \}
+    \end{equation}
+    with cardinality $|\mathcal{A}| = 7$. The hardware button \texttt{SELECT} is intentionally excluded; in Pok{\'e}mon Red, \texttt{SELECT} triggers inventory item swapping and battle move reordering, which induces severe policy instability and item soft-locks under stochastic exploration.
     \item $\mathcal{P}(s' \mid s, a)$ represents the Game Boy hardware execution dynamics. While the DMG-01 Z80 CPU execution is cycle-deterministic, internal hardware timers (the divider register \texttt{rDIV} at \texttt{0xFF04}) and vertical blank interrupts introduce pseudo-stochasticity in wild Pok{\'e}mon encounter rates, move accuracy, and damage calculation rolls.
     \item $\mathcal{R}(s, a, s')$ is the extrinsic composite scalar reward function.
     \item $\Omega$ is the observation space received by the policy network.
@@ -177,9 +190,10 @@ The interaction loop between the deep RL agent and the Game Boy hardware emulato
 
 \subsection{Hardware-Faithful Action Cadence (8/16 Timing)}
 A fundamental contribution of the Baseline V2 design is the Joypad actuation timing. In the original Game Boy hardware, button inputs are polled during CPU interrupt routines. Issuing single-frame button presses (as standard in Atari 2600 environments) results in over $90\%$ of inputs being dropped by the Game Boy polling loop. Baseline V2 enforces a 24-frame actuation cycle:
-\begin{equation}
-\Delta t_{\text{action}} = \Delta t_{\text{press}} (8\text{ frames}) + \Delta t_{\text{release}} (16\text{ frames}) = 24\text{ frames} \approx 0.40\text{ s}
-\end{equation}
+\begin{align}
+\Delta t_{\text{action}} &= \Delta t_{\text{press}} (8\text{ frames}) + \Delta t_{\text{release}} (16\text{ frames}) \nonumber \\
+&= 24\text{ frames} \approx 0.40\text{ s}
+\end{align}
 This ensures that every policy actuation is guaranteed to register in the internal joypad register (\texttt{rP1} / \texttt{0xFF00}).
 
 \subsection{Dynamic Step Budget Formula}
@@ -197,9 +211,10 @@ R_t = R_{\text{event}}(s_t) + R_{\text{nav}}(s_t) + R_{\text{heal}}(s_t) + R_{\t
 
 \subsubsection{Storyline Event Progression Reward \texorpdfstring{($R_{\text{event}}$)}{(R\_event)}}
 Rewards setting global progression event bits:
-\begin{equation}
-R_{\text{event}}(s_t) = 2.0 \times \max\left(0, \sum_{i=\text{start}}^{\text{end}} \text{popcount}(\text{RAM}[i]) - N_{\text{events}}^{\max}\right)
-\end{equation}
+\begin{align}
+R_{\text{event}}(s_t) = 2.0 \times \max\Bigl(0, &\sum_{i=\text{start}}^{\text{end}} \text{popcount}(\text{RAM}[i]) \nonumber \\
+&- N_{\text{events}}^{\max}\Bigr)
+\end{align}
 
 \subsubsection{Coordinate Novelty Exploration Reward \texorpdfstring{($R_{\text{nav}}$)}{(R\_nav)}}
 Computes exact coordinate novelty over historical state trajectory:
@@ -344,7 +359,7 @@ The complete operational rollout, telemetry extraction, reward synthesis, and po
 \label{alg:baseline_v2}
 \footnotesize
 \begin{algorithmic}[1]
-\REQUIRE PyBoy Game Boy Emulator $\mathcal{E}$, Policy $\pi_\theta$, Value Network $V_\phi$, Initial State $s_0$ (\texttt{has\_pokedex\_nballs.state}), Base Budget $B_{\text{base}} = 10{,}240$, Budget Increment $\Delta B = 2{,}048$.
+\REQUIRE Emulator $\mathcal{E}$, Policy $\pi_\theta$, Value $V_\phi$, Save $s_0$, Base Budget $B_{\text{base}} = 10{,}240$, Step Incr $\Delta B = 2{,}048$.
 \ENSURE Rollout Trajectory $\mathcal{D} = \{ (o_t, a_t, R_t, o_{t+1}, d_t) \}$, Model Updates $\Delta \theta, \Delta \phi$.
 \STATE Initialize coordinate history $\mathcal{H} \leftarrow \emptyset$, max level metric $\Phi_{\text{lvl}}^{\max} \leftarrow 0$, max events $N_{\text{events}}^{\max} \leftarrow 0$.
 \STATE Load save state $s_0$ into emulator $\mathcal{E}$.
@@ -357,7 +372,7 @@ The complete operational rollout, telemetry extraction, reward synthesis, and po
     \STATE Send Joypad release event: $\mathcal{E}.\text{release\_input}(a_t)$.
     \STATE Advance emulator: $\mathcal{E}.\text{tick}(16\text{ frames})$ \COMMENT{Total $\Delta t = 24$ frames $\approx 0.40$s}.
     \STATE \COMMENT{\textbf{Extract Hardware Telemetry from WRAM}}
-    \STATE Read coordinate: $c_t = \langle \text{WRAM}[\texttt{0xD35E}], \text{WRAM}[\texttt{0xD362}], \text{WRAM}[\texttt{0xD361}] \rangle$.
+    \STATE Read coords: $c_t = \langle \mathbf{m}[\texttt{0xD35E}], \mathbf{m}[\texttt{0xD362}], \mathbf{m}[\texttt{0xD361}] \rangle$.
     \STATE Read party health: $\vec{\text{HP}}_t, \vec{\text{HP}}_{\max} \leftarrow \text{WRAM}[\texttt{0xD16C}\dots\texttt{0xD194}]$.
     \STATE Read party levels: $\vec{L}_t \leftarrow \text{WRAM}[\texttt{0xD18C}, \dots]$.
     \STATE Read storyline flags: $N_{\text{events}}(s_t) \leftarrow \sum \text{popcount}(\text{WRAM}[\texttt{0xD747}\dots\texttt{0xD87E}])$.
@@ -474,7 +489,7 @@ The live lockstep execution across 10,000 steps provides profound empirical insi
 \end{enumerate}
 
 \subsubsection{Fundamental Algorithmic Failures}
-Despite these strengths, Baseline V2 suffers from three fatal mathematical failure modes:
+Despite these strengths, Baseline V2 suffers from three fatal mathematical failure modes: exponential gradient attenuation across multi-thousand-step horizons, additive reward traps outside healing centers, and combinatorial menu exploration walls. We formalize and prove each systemic failure below.
 
 \subsection{Mathematical Proofs of Systemic Failure Modes}
 
@@ -535,19 +550,21 @@ The menu depth is $m = 15$ steps. Crucially, any erroneous action (such as press
 P(\sigma_{\text{menu}}) = \left( \frac{1}{7} \right)^{15} \approx 2.097 \times 10^{-13}
 \end{equation}
 At an emulation throughput of 100 SPS, uniform random exploration requires:
-\begin{equation}
-\mathbb{E}[T_{\text{discovery}}] = \frac{1}{100 \times 2.097 \times 10^{-13}} \approx 4.76 \times 10^{10}\text{ s} \approx 1.51 \times 10^5\text{ years}
-\end{equation}
+\begin{align}
+\mathbb{E}[T_{\text{discovery}}] &= \frac{1}{100 \cdot P(\sigma_{\text{menu}})} \approx 4.76 \times 10^{10}\text{ s} \nonumber \\
+&\approx 1.51 \times 10^5\text{ years}
+\end{align}
 This mathematically proves why $0\%$ of model-free PPO runs ever taught HM01 Cut.
 
 \subsubsection{Pathology 3: The Starter Paradox and Greedy Spatial Discounting}
 In the open starter selection ablation (Table~\ref{tab:table3}, row 5), the agent is initialized inside Professor Oak's laboratory and tasked with selecting between Charmander, Squirtle, and Bulbasaur. Charmander's Pok{\'e}ball is situated on the leftmost pedestal, exactly one coordinate tile closer to the laboratory entrance than Squirtle. Under the additive event reward $R_{\text{event}} = +2.0$, reaching Charmander occurs $\Delta t \approx 2$ steps earlier.
 
 Because the policy maximizes the temporally discounted return:
-\begin{equation}
-\Delta J(\text{Charmander} \succ \text{Squirtle}) = \gamma^t (2.0) - \gamma^{t+2} (2.0) = \gamma^t (2.0)(1 - \gamma^2) > 0
-\end{equation}
-the myopic gradient overwhelmingly favors navigating to Charmander. However, selecting Charmander introduces a catastrophic downstream disadvantage: Brock's Rock/Ground gym and Misty's Water gym deal $2\times$ super-effective damage to Fire-type Charmander, reducing the Misty completion probability to $2\%$. Because GAE attenuates downstream value gradients by $\approx 10^{-590}$ over the $25{,}000$ steps separating Oak's lab from Cerulean Gym, the policy is mathematically blinded to downstream type advantages and converges greedily to the worst starter.
+\begin{align}
+\Delta J &= \gamma^t (2.0) - \gamma^{t+2} (2.0) \nonumber \\
+&= \gamma^t (2.0)(1 - \gamma^2) > 0
+\end{align}
+where $\Delta J = J(\text{Charmander}) - J(\text{Squirtle})$. The myopic gradient overwhelmingly favors navigating to Charmander. However, selecting Charmander introduces a catastrophic downstream disadvantage: Brock's Rock/Ground gym and Misty's Water gym deal $2\times$ super-effective damage to Fire-type Charmander, reducing the Misty completion probability to $2\%$. Because GAE attenuates downstream value gradients by $\approx 10^{-590}$ over the $25{,}000$ steps separating Oak's lab from Cerulean Gym, the policy is mathematically blinded to downstream type advantages and converges greedily to the worst starter.
 
 ---
 
@@ -570,7 +587,7 @@ Rather than allowing the policy network to sample invalid actions during text di
 1, & \text{otherwise,}
 \end{cases}
 \end{equation}
-where $\mathbf{m}$ denotes Game Boy WRAM, $\mathcal{A}_{\text{dir}} = \{\text{UP}, \text{DOWN}, \text{LEFT}, \text{RIGHT}\}$, register $\mathbf{m}[\texttt{0xCF13}] \ne 0$ indicates active dialogue (suppressing redundant walking into dialogue boxes), and $\mathbf{m}[\texttt{0xD057}] \ne 0$ indicates active combat (suppressing Start menu execution). The action mask is integrated directly into the policy logit projection via masked softmax:
+where $\mathbf{m}$ denotes Game Boy Work RAM, action subset $\mathcal{A}_{\text{dir}} = \{\text{UP}, \text{DOWN}, \text{LEFT}, \text{RIGHT}\}$, register $\mathbf{m}[\texttt{0xCF13}] \ne 0$ indicates active dialogue (suppressing directional inputs into textboxes), and register $\mathbf{m}[\texttt{0xD057}] \ne 0$ indicates active combat (suppressing the Start menu). The action mask is integrated directly into the policy logit projection via masked softmax:
 \begin{equation}
 \tilde{\pi}_\theta(a \mid s) = \frac{\exp(z_a) \cdot \mathcal{M}(a \mid s)}{\sum_{a' \in \mathcal{A}} \exp(z_{a'}) \cdot \mathcal{M}(a' \mid s)}
 \end{equation}
