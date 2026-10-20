@@ -268,44 +268,64 @@ python scripts/compare_baseline_v2_models_demo.py --steps 10000 --headless
 ### 5.2 Mathematical Proofs of Systemic Failure Modes
 
 #### Theorem 1: The Horizon Collapse Theorem
-In an infinite-horizon MDP with discount factor $\gamma \in (0, 1)$ and GAE parameter $\lambda \in (0, 1)$, the policy gradient contribution from a downstream milestone reward $R^*$ occurring at step $t+K$ attenuates exponentially:
+In an infinite-horizon MDP with discount factor $\gamma \in (0, 1)$ and GAE parameter $\lambda \in (0, 1)$, the policy gradient contribution from a downstream milestone reward $R^{\star}$ occurring at step $t+K$ attenuates exponentially:
 
-$$\| \nabla_\theta \mathcal{L}_t^{\mathrm{PPO}}(\theta; R_{t+K}^*) \| \le C \cdot (\gamma \lambda)^K \cdot |R^*|$$
+$$
+\left\Vert \nabla_{\theta} \mathcal{L}_{t}^{\mathrm{PPO}}(\theta; R_{t+K}^{\star}) \right\Vert \le C \cdot (\gamma \lambda)^K \cdot |R^{\star}|
+$$
 
 With $\gamma = 0.997$ and $\lambda = 0.95$, the effective decay base is $\rho = \gamma \lambda = 0.94715$. Over the $K \approx 25{,}000$ steps required to progress from Pallet Town to Cerulean Gym (defeating Misty):
 
-$$\rho^{25{,}000} = (0.94715)^{25{,}000} \approx \mathbf{10^{-590}} \to \mathbf{0}$$
+$$
+\rho^{25{,}000} = (0.94715)^{25{,}000} \approx \mathbf{10^{-590}} \to \mathbf{0}
+$$
 
 **Scientific Implication:** The mathematical credit transmitted back to early game choices is literally $\approx 10^{-590}$ (underflowing IEEE 754 64-bit precision). Flat model-free PPO is mathematically incapable of learning across this horizon.
 
 #### Pathology 1: The 500x Nurse Joy Healing Trap
 Because reward terms are additive, the agent compares expected returns:
 
-$$R_{\mathrm{heal}} = 2.500 \quad \text{vs.} \quad R_{\mathrm{nav}} = 0.005 \implies \frac{R_{\mathrm{heal}}}{R_{\mathrm{nav}}} = 500\times$$
+$$
+R_{\mathrm{heal}} = 2.500 \quad \text{vs.} \quad R_{\mathrm{nav}} = 0.005 \implies \frac{R_{\mathrm{heal}}}{R_{\mathrm{nav}}} = 500\times
+$$
 
 Over a periodic cycle of $T = 30$ steps (stepping into grass, taking damage, speaking to Nurse Joy):
 
-$$V_{\mathrm{farm}} = \frac{R_{\mathrm{heal}}}{1 - \gamma^T} = \frac{2.5}{1 - 0.997^{30}} = \frac{2.5}{1 - 0.9138} \approx \mathbf{29.00}$$
+$$
+V_{\mathrm{farm}} = \frac{R_{\mathrm{heal}}}{1 - \gamma^T} = \frac{2.5}{1 - 0.997^{30}} = \frac{2.5}{1 - 0.9138} \approx \mathbf{29.00}
+$$
 
 In contrast, venturing into dangerous, unmapped caves (Mt. Moon) yields:
 
-$$V_{\mathrm{explore}} \approx \sum_{t=0}^{200} \gamma^t (0.005) \approx 0.005 \times 150 \approx \mathbf{0.75}$$
+$$
+V_{\mathrm{explore}} \approx \sum_{t=0}^{200} \gamma^t (0.005) \approx 0.005 \times 150 \approx \mathbf{0.75}
+$$
 
-Because `V_farm >> V_explore` ($29.00 \gg 0.75$), the policy mathematically converges to farming Nurse Joy.
+Because $V_{\mathrm{farm}} \gg V_{\mathrm{explore}}$ ($29.00 \gg 0.75$), the policy mathematically converges to farming Nurse Joy.
 
 #### Pathology 2: The Combinatorial Menu Wall
 Executing a menu sequence (e.g., teaching HM01 Cut or selecting an item):
 
-$$\sigma_{\mathrm{menu}} = \langle \text{START}, \text{DOWN}, \text{DOWN}, \text{A}, \text{A}, \text{DOWN}, \text{A}, \dots \rangle \quad (m = 15\text{ steps})$$
+$$
+\sigma_{\mathrm{menu}} = \langle \text{START}, \text{DOWN}, \text{DOWN}, \text{A}, \text{A}, \text{DOWN}, \text{A}, \dots \rangle \quad (m = 15\text{ steps})
+$$
 
 The probability of uniform random discovery under $|\mathcal{A}| = 7$ is:
 
-$$P(\sigma_{\mathrm{menu}}) = \left( \frac{1}{7} \right)^{15} \approx \mathbf{2.097 \times 10^{-13}}$$
+$$
+P(\sigma_{\mathrm{menu}}) = \left( \frac{1}{7} \right)^{15} \approx \mathbf{2.097 \times 10^{-13}}
+$$
 
 At 100 SPS, random exploration requires **$1.51 \times 10^5$ years** of continuous simulation to stumble upon the sequence once.
 
 #### Pathology 3: The Starter Paradox & Greedy Euclidean Discounting
-In open starter selection, Charmander's Pokéball is 1 tile closer to Oak than Squirtle. Reaching Charmander triggers the $+2.0$ event reward $\Delta t \approx 2$ steps earlier. Because discounted return prioritizes $\gamma^t (2.0) > \gamma^{t+2}(2.0)$, the gradient overwhelmingly selects Charmander, despite Charmander possessing a disastrous $2\%$ win rate against Misty 25,000 steps later.
+In open starter selection, Charmander's Pokéball is 1 tile closer to Oak than Squirtle. Reaching Charmander triggers the $+2.0$ event reward $\Delta t \approx 2$ steps earlier. Because discounted return prioritizes:
+
+$$
+\Delta J = \gamma^t (2.0) - \gamma^{t+2} (2.0) = \gamma^t (2.0)(1 - \gamma^2) > 0
+$$
+
+the gradient overwhelmingly selects Charmander, despite Charmander possessing a disastrous $2\%$ win rate against Misty 25,000 steps later.
 
 ### 5.3 The Four Pillars of SOTA Improvements
 
