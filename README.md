@@ -231,7 +231,7 @@ To rigorously benchmark our reimplemented pipeline, we conduct live, synchronize
 </details>
 
 > [!NOTE]
-> For the complete mathematical proof of Horizon Collapse under GAE, POMDP formulation, tri-modal architecture diagrams, and the empirical Table 3 reproduction matrix, see the companion research paper: [`baseline_v2_reimplementation_and_empirical_reproduction.tex`](baseline_v2_reimplementation_and_empirical_reproduction.tex).
+> For the complete mathematical proof of Horizon Collapse under GAE, POMDP formulation, tri-modal architecture diagrams, and the empirical Table 3 reproduction matrix, see the companion research paper: [`baseline_v2_reimplementation_and_empirical_reproduction.tex`](baseline_v2_reimplementation_and_empirical_reproduction.tex) (also mirrored as [`main.tex`](main.tex) alongside master [`references.bib`](references.bib) for 1-click Overleaf compilation).
 
 ### How to Run the Live Dual Interactive Showdown
 ```powershell
